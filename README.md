@@ -56,19 +56,20 @@ If you are using Conda instead, create a Python 3.9 environment and install the 
 
 ## Run in Google Colab
 
-Once this repository is pushed to GitHub, the easiest cloud workflow is:
+This repository is published at:
+
+```text
+https://github.com/xys004/warp_bubble_optimization.git
+```
+
+The included notebook `colab_smoke_test.ipynb` is the easiest cloud workflow.
 
 1. Open `colab_smoke_test.ipynb` from the GitHub repository in Google Colab.
-2. Fill in the repository URL placeholder in the first cell.
+2. Because the repository is private, paste a GitHub token into the `GITHUB_TOKEN` variable in the first code cell.
 3. Run the notebook cells to clone the repo, install dependencies, generate a reduced smoke-test bundle, and verify the outputs.
 4. If the smoke test passes, rerun `generate_run_bundle.py` from Colab with larger `--epochs`, `--n-xyz`, and pretraining settings.
 
-A minimal GitHub push sequence, after you create the remote, is:
-
-```bash
-git remote add origin <GITHUB_REPO_URL>
-git push -u origin master
-```
+If you prefer not to store a token in the notebook, you can also clone interactively in a Colab terminal/session or make the repository public later for easier notebook launching.
 
 ## Run a Single Optimization
 
