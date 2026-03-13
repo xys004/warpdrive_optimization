@@ -141,8 +141,13 @@ Optional arguments include:
 - `--line-size <width> <height>`
 - `--interface-buffer <float>`
 - `--diagnostic-nxyz <int>`
+- `--xlim <xmin> <xmax>`
+- `--ylim <ymin> <ymax>`
+- `--interpolation nearest|bilinear`
 
 `--diagnostic-nxyz` is especially useful when the optimizer had to run on a coarse grid for memory reasons. It keeps the optimized parameters fixed and recomputes the diagnostic maps on a finer post-processing grid, which makes the exported PNG figures much smoother without claiming a different optimization result.
+
+`--xlim` and `--ylim` let you zoom to the physically relevant shell region, which is often far more informative than plotting the full `[-6, 6]` box. `--interpolation bilinear` can make display smoother in notebooks, but it only changes rendering, not the underlying diagnostic values.
 
 The plotting pipeline reconstructs the field maps from the final optimized parameters using the same principal-stress eigenvalue diagnostics as the optimizer and the exported success-rate tables, via the shared helper module `physics_core.py`.
 

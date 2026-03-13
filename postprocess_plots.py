@@ -402,6 +402,9 @@ def plot_map(
     with_colorbar=True,
     figsize=(6.5, 5.8),
     dpi=300,
+    interpolation="nearest",
+    xlim=None,
+    ylim=None,
 ):
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     cmap = plt.get_cmap("bwr").copy()
@@ -413,13 +416,17 @@ def plot_map(
         extent=(axis_x[0], axis_x[-1], axis_y[0], axis_y[-1]),
         cmap=cmap,
         norm=_symmetric_norm(data),
-        interpolation="nearest",
+        interpolation=interpolation,
         aspect="equal",
     )
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
 
     if with_colorbar:
         cbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
@@ -605,6 +612,28 @@ def main():
         default=None,
         help="Optional diagnostic grid size for post-processing only. Use this to recompute smoother field maps from the final parameters without rerunning the optimizer.",
     )
+    parser.add_argument(
+        "--xlim",
+        type=float,
+        nargs=2,
+        metavar=("XMIN", "XMAX"),
+        default=None,
+        help="Optional x-axis limits for field-map figures.",
+    )
+    parser.add_argument(
+        "--ylim",
+        type=float,
+        nargs=2,
+        metavar=("YMIN", "YMAX"),
+        default=None,
+        help="Optional y-axis limits for field-map figures. Applied to y on XY and z on XZ.",
+    )
+    parser.add_argument(
+        "--interpolation",
+        choices=["nearest", "bilinear"],
+        default="nearest",
+        help="Image interpolation used when rendering field maps. This affects display only, not the underlying diagnostics.",
+    )
     args = parser.parse_args()
 
     configure_style()
@@ -647,6 +676,9 @@ def main():
                 with_colorbar=args.with_colorbar,
                 figsize=tuple(args.map_size),
                 dpi=args.dpi,
+                interpolation=args.interpolation,
+                xlim=tuple(args.xlim) if args.xlim else None,
+                ylim=tuple(args.ylim) if args.ylim else None,
             )
 
     plot_losses(
