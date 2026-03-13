@@ -143,7 +143,7 @@ Optional arguments include:
 - `--diagnostic-nxyz <int>`
 - `--xlim <xmin> <xmax>`
 - `--ylim <ymin> <ymax>`
-- `--interpolation nearest|bilinear`
+- `--interpolation nearest|bilinear|bicubic`
 
 `--diagnostic-nxyz` is especially useful when the optimizer had to run on a coarse grid for memory reasons. It keeps the optimized parameters fixed and recomputes the diagnostic maps on a finer post-processing grid, which makes the exported PNG figures much smoother without claiming a different optimization result.
 

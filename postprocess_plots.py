@@ -408,7 +408,8 @@ def plot_map(
 ):
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     cmap = plt.get_cmap("bwr").copy()
-    cmap.set_bad(color="#d9d9d9")
+    cmap.set_bad(color="white")
+    ax.set_facecolor("white")
 
     image = ax.imshow(
         np.ma.masked_invalid(data).T,
@@ -630,7 +631,7 @@ def main():
     )
     parser.add_argument(
         "--interpolation",
-        choices=["nearest", "bilinear"],
+        choices=["nearest", "bilinear", "bicubic"],
         default="nearest",
         help="Image interpolation used when rendering field maps. This affects display only, not the underlying diagnostics.",
     )
