@@ -1,6 +1,8 @@
-﻿# warp_optimization
+# warp_optimization
 
 `warp_optimization` is a TensorFlow-based constrained-optimization and post-processing workflow for the revised warp-drive energy-condition study. The repository packages the optimizer, plot generation, and output verification steps used to reproduce the paper's principal-stress diagnostics for uniformly translated, zero-vorticity single-shell and double-shell seed configurations.
+
+The active workflow is a **parametric optimization over an analytic seed ansatz with physics-informed penalty terms**. It is not a PINN. The referee-facing pipeline is the revised script set in the repository root; historical notebook exports placed under `data/` should be treated as legacy audit material rather than as the authoritative figure-production path.
 
 The current codebase centers on seven key files/scripts:
 
@@ -108,7 +110,7 @@ The exported bundle contains:
 
 ## Run the Batch
 
-`run_batch.py` launches the four fixed cases used in the development notebook workflow:
+`run_batch.py` launches the four fixed cases used in the development workflow. For constant-velocity runs it now keeps the same seed for the paired `t=0.2` and `t=30.0` cases inside each domain, so time comparisons do not silently mix physics with different random initializations:
 
 - `(domain=1, v=0.1, t=0.2)`
 - `(domain=1, v=0.1, t=30.0)`
@@ -178,6 +180,22 @@ The verifier checks:
 
 The command returns a nonzero exit code on failure.
 
+## Legacy Audit Material
+
+If you place historical notebook CSVs under `data/`, treat them as legacy audit artifacts rather than as referee-facing evidence. The legacy workflow typically exported:
+
+- `<base>_parameters.csv`
+- `<base>_losses.csv`
+- `<base>_success_rates.csv`
+- `<base>_violations.csv`
+
+Those files usually use component-style success labels such as `h1..h4` instead of the revised `nec,wec,dec,sec` principal-stress diagnostics. The helper below compares legacy and/or revised runs numerically:
+
+```bash
+python compare_run_summaries.py --base-a data/domain2_t30.0 --base-b domain_2_v_0p1_t_30p0
+```
+
+Direct XY/XZ field summaries are produced only when both inputs are revised bundles with `metadata.json`.
 ## One-Shot End-to-End Helper
 
 To run optimization, plotting, and verification in one command:
@@ -241,6 +259,8 @@ All field-map filenames use the revised manuscript language:
 
 The project originated in an interactive Google Cloud notebook workflow used during the paper development stage. The repository version consolidates that workflow into standalone Python scripts so that optimization, post-processing, and verification can be rerun without the original notebook environment.
 
+A short Phase A audit note for referee preparation is included at `docs/phase_a_referee_audit.md`. That document explains how the revised pipeline differs from the historical notebook exports and why the legacy CSVs in `data/` should not be read as direct support for the revised principal-stress claims.
+
 ### Python and TensorFlow Environment
 
 The scripts were tested in the following environment:
@@ -276,6 +296,8 @@ For each run base `<base>`, the optimizer exports:
 
 The revised pipeline uses principal-stress eigenvalue diagnostics in the orthonormal bubble-centered/comoving frame. Success columns are `nec`, `wec`, `dec`, and `sec`; legacy `h1`-`h6` naming is not used.
 
+Only the seed's non-negative `rho` is treated as an analytic construction feature. Global WEC/NEC/DEC/SEC satisfaction is not enforced by identity; those margins are evaluated numerically from the principal stresses and penalized in the optimization objective.
+
 ### Plotting Pipeline
 
 `postprocess_plots.py` reloads the exported metadata and final parameters, reconstructs the final field snapshot through `EinsteinTrainerCPU`, and then evaluates:
@@ -308,4 +330,6 @@ Before creating a Zenodo archive, review the following:
 The following files contain placeholders that should be updated before a final public archival release:
 
 - `CITATION.cff`: author, repository URL, DOI, and release metadata
+
+
 
