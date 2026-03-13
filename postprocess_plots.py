@@ -199,7 +199,7 @@ def validate_run(run):
     if not xyz_max > xyz_min:
         raise ValueError("metadata.json must satisfy xyz_range[1] > xyz_range[0]")
 
-    n_xyz = int(trainer.N_xyz)
+    n_xyz = int(metadata["N_xyz"])
     if n_xyz < 2:
         raise ValueError("metadata.json must satisfy N_xyz >= 2")
 
