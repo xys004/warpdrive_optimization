@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import csv
 import json
 import warnings
@@ -203,6 +203,14 @@ def validate_run(run):
     if n_xyz < 2:
         raise ValueError("metadata.json must satisfy N_xyz >= 2")
 
+    if str(metadata.get("v_mode", "constant")) != "constant":
+        velocity_settings = metadata.get("velocity_settings")
+        if not isinstance(velocity_settings, dict):
+            raise ValueError("Linear-mode metadata must include a velocity_settings object")
+        v_coeffs = velocity_settings.get("v_coeffs")
+        if not isinstance(v_coeffs, list) or len(v_coeffs) != 2:
+            raise ValueError("Linear-mode metadata must include velocity_settings.v_coeffs as a two-element list")
+
     for key in SUCCESS_KEYS:
         values = np.asarray(run["success_rates"][key], dtype=float)
         finite = values[np.isfinite(values)]
@@ -255,14 +263,23 @@ def _build_trainer(metadata, diagnostic_n_xyz=None):
     from einstein_optimizer import CONFIG, EinsteinTrainerCPU
 
     alpha_cfg = metadata.get("alpha_settings", {})
-    velocity = float(metadata["velocity"])
+    velocity_cfg = metadata.get("velocity_settings", {})
+    velocity = float(velocity_cfg.get("snapshot_velocity", metadata["velocity"]))
     v_mode = str(metadata.get("v_mode", "constant"))
+    # Rebuild the exact kinematic law recorded by the optimizer bundle. Falling back
+    # to module-level defaults would make linear-mode rerenders non-reproducible.
+    if isinstance(velocity_cfg.get("v_coeffs"), list) and len(velocity_cfg["v_coeffs"]) == 2:
+        v_coeffs = tuple(float(v) for v in velocity_cfg["v_coeffs"])
+    else:
+        v_coeffs = tuple(CONFIG.get("V_COEFFS", (0.0, 0.1)))
 
     # For the paper's uniformly translated class, diagnostics are interpreted in the
     # orthonormal bubble-centered/comoving frame. When v is constant and the shell
     # topology is fixed, changing time only changes the lab-frame displacement; it does
     # not create a physically distinct comoving field map.
     effective_v_mode = "constant" if v_mode == "constant" else v_mode
+
+    physics_cfg = metadata.get("physics_settings", {})
 
     trainer = EinsteinTrainerCPU(
         N_xyz=int(diagnostic_n_xyz if diagnostic_n_xyz is not None else metadata["N_xyz"]),
@@ -275,14 +292,16 @@ def _build_trainer(metadata, diagnostic_n_xyz=None):
         alpha_floor_start=float(alpha_cfg.get("floor_start", CONFIG["ALPHA_FLOOR_START"])),
         alpha_floor_end=float(alpha_cfg.get("floor_end", CONFIG["ALPHA_FLOOR_END"])),
         alpha_warmup_frac=float(alpha_cfg.get("warmup_frac", CONFIG["ALPHA_WARMUP_FRAC"])),
-        smoothing_target_pct=float(CONFIG["SMOOTHING_TARGET_PCT"]),
-        physics_scale=float(CONFIG["PHYSICS_SCALE"]),
-        L_breach=float(CONFIG["L_BREACH"]),
-        L_inv_alpha=float(CONFIG["L_INV_ALPHA"]),
+        smoothing_target_pct=float(physics_cfg.get("smoothing_target_pct", CONFIG["SMOOTHING_TARGET_PCT"])),
+        physics_scale=float(physics_cfg.get("physics_scale", CONFIG["PHYSICS_SCALE"])),
+        L_breach=float(physics_cfg.get("L_breach", CONFIG["L_BREACH"])),
+        L_inv_alpha=float(physics_cfg.get("L_inv_alpha", CONFIG["L_INV_ALPHA"])),
         velocity=velocity,
-        L_shear=float(CONFIG["L_SHEAR"]),
+        L_shear=float(physics_cfg.get("L_shear", CONFIG["L_SHEAR"])),
+        use_dec_loss=bool(physics_cfg.get("use_dec_loss", CONFIG.get("USE_DEC_LOSS", True))),
+        dec_loss_weight=float(physics_cfg.get("dec_loss_weight", CONFIG.get("DEC_LOSS_WEIGHT", 0.25))),
         v_mode=effective_v_mode,
-        v_coeffs=tuple(CONFIG.get("V_COEFFS", (0.0, 0.1))),
+        v_coeffs=v_coeffs,
     )
     return trainer
 
@@ -795,6 +814,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

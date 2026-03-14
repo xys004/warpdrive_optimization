@@ -30,6 +30,7 @@ def fmt_num(x: float) -> str:
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the fixed four-case development batch.")
     parser.add_argument("--outdir", default=DEFAULT_OUTDIR, help="Directory where run artifacts are written.")
+    parser.add_argument("--overwrite", action="store_true", help="Allow replacing existing bundles in the output directory.")
     return parser.parse_args()
 
 
@@ -51,8 +52,11 @@ def main():
         seed = case["seed"]
         print("\n" + "=" * 88)
         print(f"Launching: domain={domain}  v={v}  t={t}  seed={seed}")
+        command = [py, "einstein_optimizer.py", "--domain", str(domain), "--v", str(v), "--t", str(t), "--seed", str(seed)]
+        if args.overwrite:
+            command.append("--overwrite")
         result = subprocess.run(
-            [py, "einstein_optimizer.py", "--domain", str(domain), "--v", str(v), "--t", str(t), "--seed", str(seed)],
+            command,
             cwd=outdir,
             check=False,
         )

@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import copy
 import os
 import subprocess
@@ -18,6 +18,7 @@ def run_step(command, cwd: Path) -> None:
 
 
 def run_optimizer(args, outdir: Path, base: str) -> None:
+    """Run the optimizer stage with CLI overrides applied to the shared CONFIG."""
     from einstein_optimizer import CONFIG, run_cpu
     import numpy as np
     import tensorflow as tf
@@ -39,10 +40,13 @@ def run_optimizer(args, outdir: Path, base: str) -> None:
         cfg["PRETRAIN_TRIALS"] = int(args.pretrain_trials)
     if args.pretrain_epochs is not None:
         cfg["PRETRAIN_EPOCHS"] = int(args.pretrain_epochs)
+    cfg["OVERWRITE_OUTPUTS"] = bool(args.overwrite)
 
     tf.random.set_seed(cfg["SEED"])
     np.random.seed(cfg["SEED"])
 
+    # The optimizer writes bundle files into the current working directory, so the
+    # wrapper temporarily switches into outdir rather than re-implementing path logic.
     old_cwd = Path.cwd()
     os.chdir(outdir)
     try:
@@ -72,6 +76,7 @@ def main() -> int:
     parser.add_argument("--pretrain-trials", type=int, default=None, help="Optional PRETRAIN_TRIALS override")
     parser.add_argument("--pretrain-epochs", type=int, default=None, help="Optional PRETRAIN_EPOCHS override")
     parser.add_argument("--outdir", default=".", help="Directory where the run bundle and plots are written")
+    parser.add_argument("--overwrite", action="store_true", help="Allow replacing an existing run bundle with the same basename")
     parser.add_argument("--with-colorbar", dest="with_colorbar", action="store_true", default=True, help="Include colorbars in field maps")
     parser.add_argument("--no-colorbar", dest="with_colorbar", action="store_false", help="Disable colorbars in field maps")
     args = parser.parse_args()
@@ -113,3 +118,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

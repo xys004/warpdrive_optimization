@@ -84,7 +84,7 @@ If `verify_outputs.py` reports missing `*_final_params.csv`, `*_parameters.csv`,
 To run one optimization snapshot and export the raw run bundle:
 
 ```bash
-python einstein_optimizer.py --domain 2 --v 0.1 --t 30.0 --seed 47
+python einstein_optimizer.py --domain 2 --v 0.1 --t 30.0 --seed 47 --overwrite
 ```
 
 This writes files with a base name of the form:
@@ -99,6 +99,8 @@ For example:
 domain_2_v_0p1_t_30p0
 ```
 
+By default the optimizer now refuses to overwrite an existing bundle with the same basename. Re-run with `--overwrite` only when you intentionally want to replace prior artifacts.
+
 The exported bundle contains:
 
 - `<base>_final_params.csv`
@@ -110,7 +112,7 @@ The exported bundle contains:
 
 ## Run the Batch
 
-`run_batch.py` launches the four fixed cases used in the development workflow. For constant-velocity runs it now keeps the same seed for the paired `t=0.2` and `t=30.0` cases inside each domain, so time comparisons do not silently mix physics with different random initializations:
+`run_batch.py` launches the four fixed cases used in the development workflow. For constant-velocity runs it now keeps the same seed for the paired `t=0.2` and `t=30.0` cases inside each domain, so time comparisons do not silently mix physics with different random initializations. Like the single-run CLI, it refuses to overwrite an existing bundle unless you pass `--overwrite`:
 
 - `(domain=1, v=0.1, t=0.2)`
 - `(domain=1, v=0.1, t=30.0)`
@@ -120,7 +122,7 @@ The exported bundle contains:
 Run it with:
 
 ```bash
-python run_batch.py
+python run_batch.py --overwrite
 ```
 
 The script writes results into `runs/` and copies `einstein_optimizer.py` there before execution.
@@ -201,13 +203,13 @@ Direct XY/XZ field summaries are produced only when both inputs are revised bund
 To run optimization, plotting, and verification in one command:
 
 ```bash
-python generate_run_bundle.py --domain 2 --v 0.1 --t 30.0
+python generate_run_bundle.py --domain 2 --v 0.1 --t 30.0 --overwrite
 ```
 
 For faster smoke tests in a limited environment, reduce the optimizer settings explicitly, for example:
 
 ```bash
-python generate_run_bundle.py --domain 2 --v 0.1 --t 30.0 --epochs 10 --n-xyz 12 --pretrain-trials 0
+python generate_run_bundle.py --domain 2 --v 0.1 --t 30.0 --overwrite --epochs 10 --n-xyz 12 --pretrain-trials 0
 ```
 
 ## Paper Figure Mapping
@@ -330,6 +332,8 @@ Before creating a Zenodo archive, review the following:
 The following files contain placeholders that should be updated before a final public archival release:
 
 - `CITATION.cff`: author, repository URL, DOI, and release metadata
+
+
 
 
 

@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import csv
 import json
 import sys
@@ -217,6 +217,17 @@ def verify(base: str, tol: float = 1e-5) -> VerificationResult:
         errors.append(f"metadata.json has invalid domain_type={domain_type}; expected 1 or 2")
         return VerificationResult(errors=errors, warnings=warnings, notes=notes)
 
+    # Linear-mode runs need extra metadata to remain reproducible. Constant-velocity
+    # runs can be reconstructed from the snapshot velocity alone.
+    if str(metadata.get("v_mode", "constant")) != "constant":
+        velocity_settings = metadata.get("velocity_settings")
+        if not isinstance(velocity_settings, dict):
+            errors.append("metadata.json is missing velocity_settings for a linear-mode run")
+        else:
+            v_coeffs = velocity_settings.get("v_coeffs")
+            if not isinstance(v_coeffs, list) or len(v_coeffs) != 2:
+                errors.append("metadata.json must provide velocity_settings.v_coeffs for a linear-mode run")
+
     final_headers, final_rows = _read_csv(paths["final_params"])
     param_headers, param_rows = _read_csv(paths["parameters"])
     loss_headers, loss_rows = _read_csv(paths["losses"])
@@ -295,4 +306,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 

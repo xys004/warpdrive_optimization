@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import copy
 import json
 import math
@@ -16,6 +16,7 @@ from physics_core import assemble_pressure_eigenvalues, principal_stress_margins
 warnings.filterwarnings("ignore")
 
 CONFIG = {
+    # Central configuration for the referee-facing single-snapshot workflow.
     "QUIET": True,
     "USE_TQDM": False,
     "SHOW_PLOTS": False,
@@ -41,6 +42,9 @@ CONFIG = {
     "L_BREACH": 1e6,
     "L_INV_ALPHA": 1e3,
     "L_SHEAR": 0.0,
+    "USE_DEC_LOSS": True,
+    "DEC_LOSS_WEIGHT": 0.25,
+    "OVERWRITE_OUTPUTS": False,
     "A_INIT": 1.0,
     "B_INIT": 1.0,
     "R0_INIT": 1.0,
@@ -105,6 +109,59 @@ def fmt_num(x):
     return s.replace(".", "p") if "." in s else f"{s}p0"
 
 
+def current_snapshot_velocity(cfg):
+    """Return the physical velocity associated with the exported snapshot.
+
+    For constant-velocity runs this is just VELOCITY. For linear runs we record the
+    instantaneous velocity at the exported snapshot time so downstream tools do not
+    need to guess how the basename's `v` tag was obtained.
+    """
+    if str(cfg.get("V_MODE", "linear")) == "constant":
+        return float(cfg["VELOCITY"])
+    c0, c1 = cfg.get("V_COEFFS", (0.0, 0.1))
+    return float(c0 + c1 * float(cfg["T_RANGE"][0]))
+
+
+def build_base_name(cfg):
+    """Build the canonical basename used by the paper pipeline.
+
+    The basename intentionally stays compact because it appears in every artifact.
+    Full reproducibility metadata is stored in metadata.json rather than encoded
+    into filenames.
+    """
+    vtag = fmt_num(current_snapshot_velocity(cfg))
+    ttag = fmt_num(float(cfg["T_RANGE"][0]))
+    return f"domain_{cfg['DOMAIN_TYPE']}_v_{vtag}_t_{ttag}"
+
+
+def optimizer_output_paths(base_name):
+    """List the files written directly by the optimizer stage."""
+    return [
+        f"{base_name}_final_params.csv",
+        f"{base_name}_parameters.csv",
+        f"{base_name}_losses.csv",
+        f"{base_name}_success_rates.csv",
+        f"{base_name}_metadata.json",
+        f"{base_name}_final_report.txt",
+    ]
+
+
+def ensure_output_paths_available(base_name, overwrite=False):
+    """Fail early unless the caller explicitly allows overwriting an existing bundle.
+
+    A silent overwrite makes referee-facing runs impossible to audit. We therefore
+    stop before training begins unless the caller deliberately opts in.
+    """
+    existing = [path for path in optimizer_output_paths(base_name) if os.path.exists(path)]
+    if existing and not overwrite:
+        joined = "\n".join(existing)
+        raise FileExistsError(
+            "Refusing to overwrite an existing optimizer bundle. "
+            "Use --overwrite to replace these files:\n" + joined
+        )
+
+
+
 class EinsteinTrainerCPU:
     def __init__(
         self,
@@ -124,6 +181,8 @@ class EinsteinTrainerCPU:
         L_inv_alpha,
         velocity,
         L_shear,
+        use_dec_loss,
+        dec_loss_weight,
         v_mode="linear",
         v_coeffs=(0.0, 0.1),
     ):
@@ -142,12 +201,16 @@ class EinsteinTrainerCPU:
         self.L_breach = float(L_breach)
         self.L_inv_alpha = float(L_inv_alpha)
         self.L_shear = float(L_shear)
+        self.use_dec_loss = bool(use_dec_loss)
+        self.dec_loss_weight = float(dec_loss_weight)
         self.vel = float(velocity)
         self.v_mode = str(v_mode)
         c0, c1 = v_coeffs if v_coeffs is not None else (0.0, 0.0)
         self.v0 = float(c0)
         self.v1 = float(c1)
 
+        # The public API still accepts N_t / t_range for compatibility with early
+        # notebooks, but the revised workflow exports a single diagnostic snapshot.
         self.x_vals = tf.linspace(F32(self.xyz_min), F32(self.xyz_max), self.N_xyz)
         self.y_vals = tf.linspace(F32(self.xyz_min), F32(self.xyz_max), self.N_xyz)
         self.z_vals = tf.linspace(F32(self.xyz_min), F32(self.xyz_max), self.N_xyz)
@@ -557,8 +620,18 @@ class EinsteinTrainerCPU:
                 rho, Px, Py, Pz, Txy, Txz, Tyz, r = self.compute_components(A, B, R0)
                 w = self.soft_mask(r, A, B, R0, alpha)
 
+                # The loss operates on principal-stress margins, not on component-wise Type-I checks.
                 L_phys = self.physics_loss_all_observers(
-                    rho, Px, Py, Pz, Txy, Txz, Tyz, w, use_dec=True, dec_w=0.25
+                    rho,
+                    Px,
+                    Py,
+                    Pz,
+                    Txy,
+                    Txz,
+                    Tyz,
+                    w,
+                    use_dec=self.use_dec_loss,
+                    dec_w=self.dec_loss_weight,
                 )
 
                 if self.L_shear > 0.0:
@@ -892,15 +965,33 @@ class EinsteinTrainerCPU:
 
 
 def build_run_metadata(cfg, final_params, base_name):
+    """Store the run configuration needed to reproduce diagnostics without guessing.
+
+    The metadata is the referee-facing contract for this repository: post-processing,
+    verification, and external re-runs should be able to reconstruct the same
+    diagnostics without reaching back into CONFIG defaults or notebook state.
+    """
+    c0, c1 = cfg.get("V_COEFFS", (0.0, 0.1))
+    snapshot_velocity = current_snapshot_velocity(cfg)
     return {
         "domain_type": int(cfg["DOMAIN_TYPE"]),
         "v_mode": str(cfg.get("V_MODE", "linear")),
-        "velocity": float(cfg["VELOCITY"]),
+        "velocity": snapshot_velocity,
         "time": float(cfg["T_RANGE"][0]),
+        "t_range": [float(cfg["T_RANGE"][0]), float(cfg["T_RANGE"][1])],
         "seed": int(cfg["SEED"]),
         "N_xyz": int(cfg["N_XYZ"]),
+        "N_t": int(cfg.get("N_T", 1)),
         "xyz_range": [float(cfg["XYZ_RANGE"][0]), float(cfg["XYZ_RANGE"][1])],
         "final_parameters": final_params,
+        # Velocity settings are duplicated here because the compact basename only keeps
+        # the snapshot tag, while reproducing a linear run requires the underlying law.
+        "velocity_settings": {
+            "mode": str(cfg.get("V_MODE", "linear")),
+            "constant_velocity": float(cfg["VELOCITY"]),
+            "v_coeffs": [float(c0), float(c1)],
+            "snapshot_velocity": snapshot_velocity,
+        },
         "alpha_settings": {
             "mode": str(cfg["ALPHA_MODE"]),
             "init": float(cfg["ALPHA_INIT"]),
@@ -908,11 +999,41 @@ def build_run_metadata(cfg, final_params, base_name):
             "floor_end": float(cfg["ALPHA_FLOOR_END"]),
             "warmup_frac": float(cfg["ALPHA_WARMUP_FRAC"]),
         },
+        # These weights affect what the optimizer is actually minimizing, so they must
+        # travel with the bundle if we want the run to remain scientifically auditable.
+        "physics_settings": {
+            "physics_scale": float(cfg["PHYSICS_SCALE"]),
+            "L_breach": float(cfg["L_BREACH"]),
+            "L_inv_alpha": float(cfg["L_INV_ALPHA"]),
+            "L_shear": float(cfg["L_SHEAR"]),
+            "use_dec_loss": bool(cfg.get("USE_DEC_LOSS", True)),
+            "dec_loss_weight": float(cfg.get("DEC_LOSS_WEIGHT", 0.25)),
+            "smoothing_target_pct": float(cfg["SMOOTHING_TARGET_PCT"]),
+            "hard_tol": float(cfg["HARD_TOL"]),
+        },
+        # Optimizer settings record the numerical recipe used to produce the bundle.
+        "optimizer_settings": {
+            "num_epochs": int(cfg["NUM_EPOCHS"]),
+            "lr": float(cfg["LR"]),
+            "pretrain_trials": int(cfg["PRETRAIN_TRIALS"]),
+            "pretrain_epochs": int(cfg["PRETRAIN_EPOCHS"]),
+            "pretrain_lr": float(cfg["PRETRAIN_LR"]),
+            "overwrite_outputs": bool(cfg.get("OVERWRITE_OUTPUTS", False)),
+        },
         "file_basename": base_name,
     }
 
-
 def run_cpu(cfg=CONFIG):
+    """Run one optimizer snapshot and export an auditable bundle.
+
+    This is the main entry point used by the CLI and by generate_run_bundle.py. The
+    function deep-copies the input configuration so callers can safely override
+    values without mutating the module-level defaults seen by later runs.
+    """
+    cfg = copy.deepcopy(cfg)
+    base = build_base_name(cfg)
+    ensure_output_paths_available(base, overwrite=bool(cfg.get("OVERWRITE_OUTPUTS", False)))
+
     tr = EinsteinTrainerCPU(
         N_xyz=cfg["N_XYZ"],
         N_t=cfg["N_T"],
@@ -930,6 +1051,8 @@ def run_cpu(cfg=CONFIG):
         L_inv_alpha=cfg["L_INV_ALPHA"],
         velocity=cfg["VELOCITY"],
         L_shear=cfg["L_SHEAR"],
+        use_dec_loss=cfg.get("USE_DEC_LOSS", True),
+        dec_loss_weight=cfg.get("DEC_LOSS_WEIGHT", 0.25),
         v_mode=cfg.get("V_MODE", "linear"),
         v_coeffs=cfg.get("V_COEFFS", (0.0, 0.1)),
     )
@@ -943,17 +1066,6 @@ def run_cpu(cfg=CONFIG):
     report_text, final_params = tr.final_report(hist)
     if cfg.get("SHOW_PLOTS", True):
         tr.plot_all(hist)
-
-    t0 = float(cfg["T_RANGE"][0])
-    if cfg.get("V_MODE", "linear") == "constant":
-        v0 = float(cfg["VELOCITY"])
-    else:
-        c0, c1 = cfg.get("V_COEFFS", (0.0, 0.1))
-        v0 = float(c0 + c1 * t0)
-
-    vtag = fmt_num(v0)
-    ttag = fmt_num(t0)
-    base = f"domain_{cfg['DOMAIN_TYPE']}_v_{vtag}_t_{ttag}"
 
     tr.export_history_csvs(hist, base)
 
@@ -976,13 +1088,13 @@ def run_cpu(cfg=CONFIG):
 
     return tr, hist
 
-
 def _cli():
     p = argparse.ArgumentParser(description="Run Einstein optimizer for a single (domain, v, t) snapshot.")
     p.add_argument("--domain", type=int, choices=[1, 2], default=CONFIG["DOMAIN_TYPE"], help="1: single shell, 2: double shell")
     p.add_argument("--v", type=float, default=CONFIG["VELOCITY"], help="bubble speed along +z")
     p.add_argument("--t", type=float, default=CONFIG["T_RANGE"][0], help="time snapshot; single frame")
     p.add_argument("--seed", type=int, default=None, help="override RNG seed")
+    p.add_argument("--overwrite", action="store_true", help="allow replacing an existing bundle with the same basename")
     args = p.parse_args()
 
     cfg = copy.deepcopy(CONFIG)
@@ -992,6 +1104,7 @@ def _cli():
     cfg["N_T"] = 1
     if args.seed is not None:
         cfg["SEED"] = int(args.seed)
+    cfg["OVERWRITE_OUTPUTS"] = bool(args.overwrite)
     tf.random.set_seed(cfg["SEED"])
     np.random.seed(cfg["SEED"])
     run_cpu(cfg)
@@ -999,4 +1112,5 @@ def _cli():
 
 if __name__ == "__main__":
     _cli()
+
 
