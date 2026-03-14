@@ -76,7 +76,7 @@ def generate_case(case: dict, outdir: Path, overwrite: bool) -> None:
         "--pretrain-epochs",
         str(optimizer["pretrain_epochs"]),
         "--outdir",
-        str(outdir),
+        ".",
     ]
     if overwrite:
         generate_cmd.append("--overwrite")
@@ -88,7 +88,7 @@ def generate_case(case: dict, outdir: Path, overwrite: bool) -> None:
         "--base",
         base,
         "--outdir",
-        str(outdir),
+        ".",
         "--diagnostic-nxyz",
         str(plotting["diagnostic_nxyz"]),
         "--dpi",

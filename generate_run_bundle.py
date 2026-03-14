@@ -95,7 +95,7 @@ def main() -> int:
         "--base",
         base,
         "--outdir",
-        str(outdir),
+        ".",
     ]
     post_cmd.append("--with-colorbar" if args.with_colorbar else "--no-colorbar")
 
