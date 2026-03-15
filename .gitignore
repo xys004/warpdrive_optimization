@@ -23,3 +23,7 @@ domain_*_parameter_evolution.png
 # OS/editor files
 .DS_Store
 Thumbs.db
+
+# Generated release manifests
+release_artifacts/
+

@@ -182,6 +182,27 @@ The verifier checks:
 
 The command returns a nonzero exit code on failure.
 
+## Reproducibility Release
+
+For the next journal submission, treat the public code-and-data archive as part of the paper package.
+The repository now includes:
+
+- `golden_dataset/`: regenerated optimized bundles for the core single-shell and double-shell cases
+- `manuscript_target_bundles/`: direct evaluations of the manuscript target parameters under the same diagnostics
+- `release_manifest.py`: helper that writes SHA256 manifests for the intended public release payload
+- `REPRODUCIBILITY_RELEASE.md`: practical guidance for GitHub + Zenodo packaging
+- `.zenodo.json`: editable metadata template for the Zenodo deposition
+
+To generate a referee-facing manifest for the current release payload:
+
+```bash
+python release_manifest.py
+```
+
+This writes both JSON and Markdown manifests under `release_artifacts/`. Those files are useful when
+preparing a Zenodo upload or a journal companion archive, because they make the payload explicit and
+checkable.
+
 ## Legacy Audit Material
 
 If you place historical notebook CSVs under `data/`, treat them as legacy audit artifacts rather than as referee-facing evidence. The legacy workflow typically exported:

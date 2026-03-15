@@ -80,6 +80,23 @@ git push origin v0.1.0
 
 Adjust the tag name to match your release plan.
 
+## 6.5 Build a release manifest
+
+Before creating the public archive, generate a manifest of the files you intend to publish:
+
+```bash
+python release_manifest.py
+```
+
+This writes:
+
+- `release_artifacts/release_manifest.json`
+- `release_artifacts/release_manifest.md`
+
+Review those files before publishing. They are useful for Zenodo and for checking that you are
+sharing the cleaned bundles (`golden_dataset/`, `manuscript_target_bundles/`) rather than the older
+legacy notebook exports by mistake.
+
 ## 7. Zenodo preparation
 
 - Connect the GitHub repository to Zenodo.

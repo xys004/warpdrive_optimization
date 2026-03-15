@@ -1,0 +1,28 @@
+{
+  "title": "Selective Warping of Positive-Energy-Density Seeds via Differentiable Constrained Optimization",
+  "description": "Public release of the cleaned optimization, diagnostics, plotting, and verification workflow used for the revised warp-drive energy-condition study. The release is intended to support code and data reproducibility for journal review and includes regenerated golden bundles plus direct manuscript-target evaluations.",
+  "creators": [
+    {
+      "name": "Bolivar, Nelson",
+      "affiliation": "Universidad Central de Venezuela; Astrum Drive Technologies"
+    },
+    {
+      "name": "Abellan, G.",
+      "affiliation": "Universidad Central de Venezuela; Astrum Drive Technologies"
+    },
+    {
+      "name": "Vasilev, I.",
+      "affiliation": "Astrum Drive Technologies"
+    }
+  ],
+  "upload_type": "software",
+  "license": "MIT",
+  "keywords": [
+    "warp drive",
+    "general relativity",
+    "energy conditions",
+    "differentiable optimization",
+    "reproducibility"
+  ],
+  "notes": "Update creators, affiliations, title, and related identifiers before the final Zenodo deposition. Add the final DOI back into CITATION.cff after the release is archived."
+}
