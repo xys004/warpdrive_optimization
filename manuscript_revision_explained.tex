@@ -1,0 +1,273 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{parskip}
+
+\title{Detailed Explanation of Manuscript Revisions}
+\author{}
+\date{March 15, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Purpose}
+This document explains, in detail, the wording changes made to the revised manuscript file
+\texttt{warpdrive\_clean\_submission.tex}. The goal is to make clear which claims were softened,
+which claims were preserved, and why those changes were necessary after regenerating the results
+with the cleaned and auditable optimization pipeline.
+
+The explanation is based on three evidence streams:
+\begin{itemize}[leftmargin=*]
+\item legacy CSV exports from the earlier notebook-era workflow,
+\item regenerated optimized bundles from the cleaned repository pipeline,
+\item direct evaluations of the manuscript parameter targets using the same cleaned pipeline.
+\end{itemize}
+
+The most important conclusion is that the new wording is not merely a stylistic rewrite. It is an
+attempt to align the manuscript with what the cleaned code now demonstrates reproducibly.
+
+\section*{Core Evidence Used for the Revisions}
+\subsection*{Regenerated optimized bundles}
+\textbf{Single shell, optimized:}
+\begin{itemize}[leftmargin=*]
+\item $A = 1.0500$, $B = 1.6419$
+\item NEC $= 32.70\%$, WEC $= 30.23\%$, DEC $= 1.35\%$, SEC $= 66.17\%$
+\end{itemize}
+
+\textbf{Double shell, optimized:}
+\begin{itemize}[leftmargin=*]
+\item $A = 1.0426$, $B = 1.3141$, $R_0 = 1.2644$
+\item NEC $= 40.13\%$, WEC $= 40.13\%$, DEC $= 9.87\%$, SEC $= 74.34\%$
+\end{itemize}
+
+\subsection*{Direct manuscript-target evaluations}
+\textbf{Single shell, paper parameters:}
+\begin{itemize}[leftmargin=*]
+\item $A = 0.9700$, $B = 1.3210$
+\item NEC $= 33.63\%$, WEC $= 33.49\%$, DEC $= 1.77\%$, SEC $= 67.16\%$
+\end{itemize}
+
+\textbf{Double shell, paper parameters:}
+\begin{itemize}[leftmargin=*]
+\item $A = 1.8480$, $B = 1.1350$, $R_0 = 1.2920$
+\item NEC $= 32.04\%$, WEC $= 32.04\%$, DEC $= 5.83\%$, SEC $= 59.71\%$
+\end{itemize}
+
+\subsection*{Interpretive consequence}
+Even when the paper's own published seed parameters are evaluated directly under the cleaned
+pipeline, the results do \emph{not} support claims such as:
+\begin{itemize}[leftmargin=*]
+\item WEC/NEC being in a high-success regime,
+\item WEC$_{\min}$ being non-negative everywhere on the shown slices,
+\item SEC remaining positive throughout the shell or throughout the plotted slices.
+\end{itemize}
+
+They \emph{do} support:
+\begin{itemize}[leftmargin=*]
+\item DEC as the tightest residual condition,
+\item SEC being easier than DEC in aggregate,
+\item residual deficits remaining stress-dominated and localized.
+\end{itemize}
+
+\section*{Global Revisions}
+\subsection*{Abstract}
+\textbf{Previous emphasis.}
+The abstract said, in effect, that for the sampled low-velocity case the SEC trace is typically
+non-negative on sampled slices and that geometry lets WEC/NEC remain close to saturation.
+
+\textbf{Revised emphasis.}
+The abstract now says:
+\begin{itemize}[leftmargin=*]
+\item $\rho$ remains non-negative by construction,
+\item DEC is the tightest residual condition,
+\item SEC is easier than DEC in aggregate,
+\item SEC is \emph{not} claimed to be uniformly positive on the sampled slices,
+\item single-shell and double-shell cases differ mainly in how they organize and localize residual deficits.
+\end{itemize}
+
+\textbf{Reason for the change.}
+This was necessary because neither the regenerated optimized bundles nor the direct paper-target
+evaluations support uniformly positive SEC or near-saturated WEC/NEC.
+
+\subsection*{Introduction}
+\textbf{Previous emphasis.}
+The introduction suggested that, at low velocity, WEC/NEC can remain close to saturation except near
+thin interfaces.
+
+\textbf{Revised emphasis.}
+The introduction now describes the WEC/NEC margins as remaining substantially constrained and
+localized rather than disappearing.
+
+\textbf{Reason for the change.}
+This is the cleanest wording that stays true across:
+\begin{itemize}[leftmargin=*]
+\item the optimized-from-scratch bundles, and
+\item the direct manuscript-target evaluations.
+\end{itemize}
+
+\section*{Training-Curve Revisions}
+\subsection*{Previous wording}
+The manuscript originally described the training curves as showing:
+\begin{itemize}[leftmargin=*]
+\item rapid decrease of the physics loss,
+\item high NEC/WEC success fractions,
+\item an initial transient followed by parameter plateaus.
+\end{itemize}
+
+\subsection*{Revised wording}
+The revised text now says that:
+\begin{itemize}[leftmargin=*]
+\item total loss decreases and then stabilizes,
+\item interface mismatch is driven to zero,
+\item the inverse-$\alpha$ regularizer controls the late-time balance,
+\item success fractions settle into topology-dependent plateaus,
+\item the visible main run stays in a narrow parameter band because Monte--Carlo pretraining already selected a favorable starting snapshot.
+\end{itemize}
+
+\subsection*{Reason for the change}
+The cleaned runs show that:
+\begin{itemize}[leftmargin=*]
+\item late-time total loss is dominated by \texttt{inv\_alpha},
+\item \texttt{reg\_breach} goes to zero,
+\item \texttt{physics\_loss} remains numerically tiny,
+\item the visible parameter trajectories are often nearly flat.
+\end{itemize}
+
+So the revised wording reflects what the exported histories actually show, instead of describing a
+more dramatic transient than is visible in the regenerated runs.
+
+\section*{Single-Shell Discussion Changes}
+\subsection*{Previous wording}
+The earlier single-shell discussion said, in essence:
+\begin{itemize}[leftmargin=*]
+\item the WEC and NEC appear remarkably robust,
+\item the domain is predominantly neutral or positive,
+\item SEC is positive,
+\item DEC is the main failure mode.
+\end{itemize}
+
+\subsection*{Revised wording}
+The revised text now says:
+\begin{itemize}[leftmargin=*]
+\item the energy density forms a clean annulus on the sampled slices,
+\item WEC/NEC are \emph{not} in a near-saturated regime across those slices,
+\item the SEC trace is mixed rather than uniformly positive,
+\item DEC remains the dominant residual obstruction.
+\end{itemize}
+
+\subsection*{Reason for the change}
+This follows directly from both:
+\begin{itemize}[leftmargin=*]
+\item the regenerated optimized single-shell bundle, and
+\item the direct single-shell manuscript-target evaluation.
+\end{itemize}
+
+Both show low-to-moderate NEC/WEC success fractions and sign-changing SEC, while preserving the
+basic hierarchy that DEC is the hardest condition.
+
+\section*{Double-Shell Discussion Changes}
+\subsection*{Previous wording}
+The earlier double-shell discussion said, in effect:
+\begin{itemize}[leftmargin=*]
+\item $\rho > 0$,
+\item SEC is positive,
+\item WEC/NEC deficits are localized near the center or inner interface,
+\item DEC is the tightest condition.
+\end{itemize}
+
+\subsection*{Revised wording}
+The revised text now says:
+\begin{itemize}[leftmargin=*]
+\item $\rho > 0$ on the sampled slices,
+\item WEC/NEC deficits are localized near the inner region,
+\item SEC diagnostics are mixed rather than uniformly positive,
+\item SEC remains less restrictive in aggregate than DEC,
+\item DEC remains the tightest condition.
+\end{itemize}
+
+\subsection*{Reason for the change}
+The regenerated double-shell optimized bundle and the direct paper-target evaluation agree on the
+same hierarchy, but neither supports the stronger statement that SEC stays positive throughout.
+
+\section*{Caption-by-Caption Rationale}
+\subsection*{Single-shell slice captions}
+\textbf{What changed.}
+Captions that previously claimed:
+\begin{itemize}[leftmargin=*]
+\item WEC$_{\min}$ is everywhere non-negative,
+\item NEC$_{\min}$ shows near-saturation,
+\item SEC stays positive throughout,
+\end{itemize}
+were rewritten to describe:
+\begin{itemize}[leftmargin=*]
+\item localized negative sectors,
+\item intermediate rather than near-saturated behavior,
+\item sign-changing SEC that is still easier than DEC in aggregate.
+\end{itemize}
+
+\textbf{Why.}
+Because the regenerated single-shell evidence does not support the stronger slice-by-slice positivity language.
+
+\subsection*{Double-shell slice captions}
+\textbf{What changed.}
+The double-shell captions now preserve the localization story for WEC/NEC and DEC, but no longer say SEC remains positive throughout.
+
+\textbf{Why.}
+Because the regenerated double-shell SEC maps are mixed in sign even though SEC remains less restrictive than DEC in aggregate.
+
+\subsection*{Optimization captions}
+\textbf{What changed.}
+The optimization captions now describe:
+\begin{itemize}[leftmargin=*]
+\item SEC explicitly,
+\item constrained plateaus rather than high NEC/WEC success,
+\item pretraining-informed stationarity rather than a strong visible transient.
+\end{itemize}
+
+\textbf{Why.}
+Because that is what the exported histories actually show in the cleaned pipeline.
+
+\section*{What was intentionally preserved}
+Not everything was weakened. Several claims were preserved because they still appear robust:
+\begin{itemize}[leftmargin=*]
+\item the seed construction is still described as positive-energy in the intended analytic sense,
+\item the method is still a differentiable, physics-penalized parametric optimization,
+\item DEC is still described as the tightest residual condition,
+\item double-shell cases are still described as more constrained than single-shell cases,
+\item the paper still emphasizes localization and hierarchy rather than claiming full energy-condition recovery.
+\end{itemize}
+
+\section*{Why these revisions matter for referees}
+The main value of these edits is that the manuscript now does a better job separating:
+\begin{itemize}[leftmargin=*]
+\item what the analytic seed guarantees,
+\item what the optimizer merely penalizes,
+\item what the regenerated diagnostics actually support,
+\item and what remains outside the scope of the present numerics.
+\end{itemize}
+
+That distinction is especially important because the cleaned pipeline shows that the strongest previous
+claims about WEC/NEC/SEC were not robust --- not even when the published paper parameters are
+re-evaluated directly.
+
+\section*{Recommended use of this document}
+This file is meant to serve as a referee-facing or coauthor-facing explanation of the manuscript edits.
+It is not a substitute for the manuscript itself. Instead, it should be read together with:
+\begin{itemize}[leftmargin=*]
+\item \texttt{phase\_c\_domain1\_audit.md},
+\item \texttt{phase\_c\_domain2\_audit.md},
+\item \texttt{phase\_c\_synthesis.md},
+\item and the regenerated bundles in \texttt{golden\_dataset/} and \texttt{manuscript\_target\_bundles/}.
+\end{itemize}
+
+In short: the revised wording is narrower, but also substantially more defensible.
+
+\end{document}
