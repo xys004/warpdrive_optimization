@@ -27,3 +27,24 @@ Thumbs.db
 # Generated release manifests
 release_artifacts/
 
+
+# Local non-repository material
+archives/
+audio/
+code/
+data/
+figures/
+misc/
+notebooks/
+tex/
+golden_dataset_test/
+docs/*
+!docs/
+!docs/phase_a_referee_audit.md
+!docs/phase_b_golden_dataset.md
+
+# Authoritative referee-facing bundle directories
+!golden_dataset/
+!golden_dataset/**
+!manuscript_target_bundles/
+!manuscript_target_bundles/**

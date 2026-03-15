@@ -1,0 +1,58 @@
+{
+  "N_t": 1,
+  "N_xyz": 36,
+  "alpha_settings": {
+    "floor_end": 200.0,
+    "floor_start": 20.0,
+    "init": 40.0,
+    "mode": "train",
+    "warmup_frac": 1.0
+  },
+  "domain_type": 1,
+  "file_basename": "domain_1_v_0p1_t_30p0",
+  "final_parameters": {
+    "A": 1.050044298171997,
+    "B": 1.6419425010681152,
+    "R0": null,
+    "alpha": 222.69439697265625
+  },
+  "optimizer_settings": {
+    "lr": 0.003,
+    "num_epochs": 2200,
+    "overwrite_outputs": true,
+    "pretrain_epochs": 60,
+    "pretrain_lr": 0.003,
+    "pretrain_trials": 6
+  },
+  "physics_settings": {
+    "L_breach": 1000000.0,
+    "L_inv_alpha": 1000.0,
+    "L_shear": 0.0,
+    "dec_loss_weight": 0.25,
+    "hard_tol": 1e-09,
+    "physics_scale": 1e-12,
+    "smoothing_target_pct": 1.0,
+    "use_dec_loss": true
+  },
+  "seed": 147,
+  "t_range": [
+    30.0,
+    30.0
+  ],
+  "time": 30.0,
+  "v_mode": "constant",
+  "velocity": 0.1,
+  "velocity_settings": {
+    "constant_velocity": 0.1,
+    "mode": "constant",
+    "snapshot_velocity": 0.1,
+    "v_coeffs": [
+      0.0,
+      0.1
+    ]
+  },
+  "xyz_range": [
+    -6.0,
+    6.0
+  ]
+}

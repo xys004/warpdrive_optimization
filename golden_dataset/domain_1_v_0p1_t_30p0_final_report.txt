@@ -1,0 +1,19 @@
+
+=================================================================
+FINAL REPORT - Principal-stress diagnostics
+=================================================================
+A=1.050044 | B=1.641943 | alpha_final=222.69
+ Hard band (capped to box): [1.2181, 10.3923]
+Hard-domain points: 46496
+
+Success fractions (HARD mask):
+ - NEC: 32.70%
+ - WEC: 30.23%
+ - DEC: 1.35%
+ - SEC: 66.17%
+
+Principal-stress margins (unweighted snapshot):
+ - <NEC_margin> ~ -2.071293e-01
+ - <WEC_margin> ~ -2.071571e-01
+ - <DEC_margin> ~ -4.215507e-01
+ - <SEC_margin> ~ 1.483633e-02

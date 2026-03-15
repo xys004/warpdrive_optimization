@@ -1,0 +1,19 @@
+
+=================================================================
+FINAL REPORT - Principal-stress diagnostics
+=================================================================
+A=1.042632 | B=1.314130 | R0=1.264354 | alpha_final=223.20
+ Domain duro: [1.2644, 1.5219] (capped to box)
+Hard-domain points: 152
+
+Success fractions (HARD mask):
+ - NEC: 40.13%
+ - WEC: 40.13%
+ - DEC: 9.87%
+ - SEC: 74.34%
+
+Principal-stress margins (unweighted snapshot):
+ - <NEC_margin> ~ -1.218950e-01
+ - <WEC_margin> ~ -1.219923e-01
+ - <DEC_margin> ~ -2.382595e-01
+ - <SEC_margin> ~ -9.563767e-03

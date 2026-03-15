@@ -1,0 +1,2 @@
+epoch,total_loss,physics_loss,reg_breach,inv_alpha,E_soft_%,shear_pen
+1,4.166666507720947,3.152501792057748e-14,0.0,4.166666507720947,0.1858960371464491,0.0
