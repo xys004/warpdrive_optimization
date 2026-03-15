@@ -498,11 +498,24 @@ def _extract_plane(volume, plane, x_vals, y_vals, z_vals):
     raise ValueError(f"Unsupported plane '{plane}'. Use one of {PLANE_NAMES}.")
 
 
-def _symmetric_norm(data):
+def _symmetric_norm(data, percentile=99.5):
+    """Return a robust diverging normalization for signed diagnostic maps.
+
+    A few outlier pixels can otherwise dominate the absolute maximum and wash out
+    the manuscript slices. A high-percentile clip keeps the sign structure visible
+    while preserving a symmetric, zero-centered color scale.
+    """
     finite = np.asarray(data)[np.isfinite(data)]
     if finite.size == 0:
         return TwoSlopeNorm(vmin=-1.0, vcenter=0.0, vmax=1.0)
-    vmax = float(np.nanmax(np.abs(finite)))
+
+    abs_finite = np.abs(finite)
+    vmax = float(np.nanpercentile(abs_finite, percentile))
+    raw_max = float(np.nanmax(abs_finite))
+    if not np.isfinite(vmax) or vmax <= 0.0:
+        vmax = raw_max
+    if raw_max > 0.0:
+        vmax = min(raw_max, max(vmax, raw_max * 1e-6))
     if vmax <= 0.0:
         vmax = 1.0
     return TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
@@ -815,6 +828,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

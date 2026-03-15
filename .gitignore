@@ -1,4 +1,4 @@
-﻿__pycache__/
+__pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 .pytest_cache/
@@ -61,3 +61,6 @@ docs/*
 # Compile package figure assets
 !submission_package_v0p1p0/figures/
 !submission_package_v0p1p0/figures/**
+
+submission_package_v0p1p0/*.pdf
+
