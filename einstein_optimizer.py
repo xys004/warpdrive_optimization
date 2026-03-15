@@ -257,9 +257,24 @@ class EinsteinTrainerCPU:
     def r_geom(self, X, Y, Z):
         return tf.sqrt(tf.maximum(X * X + Y * Y + Z * Z, EPS))
 
+    def physical_B_to_raw(self, B_value):
+        """Convert a physical shell parameter `B` into the unconstrained optimization variable.
+
+        Domain 1 uses a shifted parameterization `B = B_min + softplus(B_raw)` so that
+        the hard shell always fits inside the finite plotting box. Callers that reason
+        in terms of the physical `B` reported in CSV files should therefore use this
+        helper instead of inverting `softplus` directly.
+        """
+        B_value = float(B_value)
+        if self.domain_type == 1:
+            B_min = 2.0 / (float(self.r_cap.numpy()) - float(RCAP_EPS.numpy()))
+            B_value = max(B_value, B_min + 1e-6)
+            return inv_softplus_pos(B_value - B_min)
+        return inv_softplus_pos(B_value)
+
     def create_variables(self, A_init=1.0, B_init=1.0, R0_init=1.0):
         self.A_raw = tf.Variable(inv_softplus_pos(A_init), dtype=tf.float32)
-        self.B_raw = tf.Variable(inv_softplus_pos(B_init), dtype=tf.float32)
+        self.B_raw = tf.Variable(self.physical_B_to_raw(B_init), dtype=tf.float32)
         self.R0_raw = (
             tf.Variable(inv_softplus_pos(max(R0_init, 1e-4)), dtype=tf.float32)
             if self.domain_type == 2
@@ -295,11 +310,14 @@ class EinsteinTrainerCPU:
         R0 = self.map_R0(self.R0_raw, B) if self.domain_type == 2 else None
         return A, B, R0
     def set_from_values(self, A_val, B_val, R0_val=None):
+        """Load physical parameter values directly into the trainable variables.
+
+        This helper is used by pretraining, audits, and manuscript-target evaluation.
+        It interprets `A`, `B`, and `R0` as the same physical quantities exported to
+        CSV, rather than as raw unconstrained optimization coordinates.
+        """
         self.A_raw.assign(inv_softplus_pos(A_val))
-        if self.domain_type == 1:
-            B_min = 2.0 / (float(self.r_cap.numpy()) - float(RCAP_EPS.numpy()))
-            B_val = max(B_val, B_min + 1e-6)
-        self.B_raw.assign(inv_softplus_pos(B_val))
+        self.B_raw.assign(self.physical_B_to_raw(B_val))
         if self.domain_type == 2 and R0_val is not None:
             _, B, _ = self.get_ABR()
             upper = float((2.0 / float(B.numpy())) - 2.0 * CONFIG["R0_MARGIN"])
