@@ -194,6 +194,7 @@ class EinsteinTrainerCPU:
         dec_loss_weight,
         v_mode="linear",
         v_coeffs=(0.0, 0.1),
+        build_grid=True,
     ):
         self.N_xyz = int(N_xyz)
         self.N_t = int(N_t)
@@ -220,18 +221,29 @@ class EinsteinTrainerCPU:
 
         # The public API still accepts N_t / t_range for compatibility with early
         # notebooks, but the revised workflow exports a single diagnostic snapshot.
+        #
+        # `build_grid=False` is used by high-resolution plotting utilities that only
+        # need direct plane evaluations. Avoiding the full NxNxN mesh here prevents
+        # large CPU-memory spikes during manuscript-quality rerenders.
         self.x_vals = tf.linspace(F32(self.xyz_min), F32(self.xyz_max), self.N_xyz)
         self.y_vals = tf.linspace(F32(self.xyz_min), F32(self.xyz_max), self.N_xyz)
         self.z_vals = tf.linspace(F32(self.xyz_min), F32(self.xyz_max), self.N_xyz)
         self.t_vals = tf.constant([self.t_min], tf.float32)
         self.N_t = 1
-        X, Y, Z, T = tf.meshgrid(
-            self.x_vals, self.y_vals, self.z_vals, self.t_vals, indexing="ij"
-        )
-        self.X = tf.reshape(tf.cast(X, tf.float32), [-1])
-        self.Y = tf.reshape(tf.cast(Y, tf.float32), [-1])
-        self.Z = tf.reshape(tf.cast(Z, tf.float32), [-1])
-        self.T = tf.reshape(tf.cast(T, tf.float32), [-1])
+        self.grid_built = bool(build_grid)
+        if self.grid_built:
+            X, Y, Z, T = tf.meshgrid(
+                self.x_vals, self.y_vals, self.z_vals, self.t_vals, indexing="ij"
+            )
+            self.X = tf.reshape(tf.cast(X, tf.float32), [-1])
+            self.Y = tf.reshape(tf.cast(Y, tf.float32), [-1])
+            self.Z = tf.reshape(tf.cast(Z, tf.float32), [-1])
+            self.T = tf.reshape(tf.cast(T, tf.float32), [-1])
+        else:
+            self.X = tf.constant([], dtype=tf.float32)
+            self.Y = tf.constant([], dtype=tf.float32)
+            self.Z = tf.constant([], dtype=tf.float32)
+            self.T = tf.constant([], dtype=tf.float32)
 
         rmax_box = np.sqrt(3.0) * max(abs(self.xyz_min), abs(self.xyz_max))
         self.r_cap = F32(rmax_box)
@@ -241,8 +253,9 @@ class EinsteinTrainerCPU:
         self.R0_raw = None
         self.alpha_raw = None
         log("OPTIMIZER - CPU (EFE with explicit v; r=||x||; MC pre-training)")
+        grid_label = f"{len(self.X)} pts" if self.grid_built else "direct-eval mode"
         log(
-            f"Grid: {len(self.X)} pts | domain={self.domain_type} | "
+            f"Grid: {grid_label} | domain={self.domain_type} | "
             f"r_cap~{rmax_box:.4f} | v={self.vel}, t={self.t_min}"
         )
 

@@ -611,33 +611,33 @@ The main novelty is therefore methodological: selective warping is combined with
 \begin{figure}[p]
   \centering
 
-  \begin{subfigure}[b]{0.52\textwidth}
+  \begin{subfigure}[b]{0.43\textwidth}
     \centering
     \includegraphics[width=\linewidth]{figures/domain_1_v_0p1_t_30p0_loss_components.png}
-    \caption{Normalized contributions to total loss: inverse-width regularizer (\texttt{inv\_alpha}), physics loss enforcing energy conditions (\texttt{physics\_loss}), interface mismatch penalty (\texttt{reg\_breach}), and their sum (\texttt{total\_loss}) as functions of epoch.}
+    \caption{Loss components across epochs.}
     \label{fig:d1-loss-components}
   \end{subfigure}
 
-  \vspace{0.5ex}
+  \vspace{0.25ex}
 
-  \begin{subfigure}[b]{0.52\textwidth}
+  \begin{subfigure}[b]{0.43\textwidth}
     \centering
     \includegraphics[width=\linewidth]{figures/domain_1_v_0p1_t_30p0_success_fractions.png}
-    \caption{Fraction of grid points satisfying NEC/WEC/DEC/SEC; SEC remains the easiest condition to satisfy, DEC remains the tightest global constraint, and NEC/WEC settle at intermediate but still significantly constrained levels.}
+    \caption{Success fractions for NEC/WEC/DEC/SEC.}
     \label{fig:d1-success}
   \end{subfigure}
 
-  \vspace{0.5ex}
+  \vspace{0.25ex}
 
-  \begin{subfigure}[b]{0.52\textwidth}
+  \begin{subfigure}[b]{0.43\textwidth}
     \centering
     \includegraphics[width=\linewidth]{figures/domain_1_v_0p1_t_30p0_params.png}
-    \caption{Convergence of seed parameters $A$ and $B$ for the single-shell seed; the main run remains almost stationary, consistent with a pretraining stage that already selected a near-plateau configuration before the published optimization history begins.}
+    \caption{Seed parameters $A$ and $B$ across epochs.}
     \label{fig:d1-params-epoch}
   \end{subfigure}
 
-  \caption{Optimization diagnostics for single-shell configuration at $v=0.1$, $t=30$.
-  The main run stays in a narrow parameter band after pretraining, while the exported diagnostics settle into a constrained regime with SEC above NEC/WEC and DEC as the tightest residual condition.}
+  \caption{Optimization diagnostics for the single-shell configuration at $v=0.1$, $t=30$. Panel (a) shows the normalized loss terms \texttt{inv\_alpha}, \texttt{physics\_loss}, \texttt{reg\_breach}, and \texttt{total\_loss}. Panel (b) reports the fractions of grid points satisfying NEC/WEC/DEC/SEC; SEC remains the easiest condition to satisfy, DEC remains the tightest global constraint, and NEC/WEC settle at intermediate but still significantly constrained levels. Panel (c) shows that the main run remains almost stationary in $A$ and $B$, consistent with a pretraining stage that already selected a near-plateau configuration before the published optimization history begins.}
+
   \label{fig:d1-opt}
 \end{figure}
 
@@ -647,33 +647,33 @@ The main novelty is therefore methodological: selective warping is combined with
 \begin{figure}[p]
   \centering
 
-  \begin{subfigure}[b]{0.56\textwidth}
+  \begin{subfigure}[b]{0.45\textwidth}
     \centering
     \includegraphics[width=\linewidth]{figures/domain_2_v_0p1_t_30p0_loss_components.png}
-    \caption{Normalized loss components for the double shell: \texttt{inv\_alpha}, \texttt{physics\_loss}, \texttt{reg\_breach}, and \texttt{total\_loss}, with the same interpretation as in Fig.~\ref{fig:d1-loss-components}.}
+    \caption{Loss components across epochs.}
     \label{fig:d2-loss-components}
   \end{subfigure}
 
-  \vspace{0.75ex}
+  \vspace{0.25ex}
 
-  \begin{subfigure}[b]{0.56\textwidth}
+  \begin{subfigure}[b]{0.45\textwidth}
     \centering
     \includegraphics[width=\linewidth]{figures/domain_2_v_0p1_t_30p0_success_fractions.png}
-    \caption{Fraction of grid points satisfying NEC/WEC/DEC/SEC; the double-shell case settles into a constrained regime in which SEC remains the easiest condition to satisfy, NEC/WEC stay above DEC, and DEC remains the tightest global constraint.}
+    \caption{Success fractions for NEC/WEC/DEC/SEC.}
     \label{fig:d2-success}
   \end{subfigure}
 
-  \vspace{0.75ex}
+  \vspace{0.25ex}
 
-  \begin{subfigure}[b]{0.56\textwidth}
+  \begin{subfigure}[b]{0.45\textwidth}
     \centering
     \includegraphics[width=\linewidth]{figures/domain_2_v_0p1_t_30p0_params.png}
-    \caption{Convergence of seed parameters $A$, $B$, and $R_0$; after a modest early adjustment the main run remains in a narrow parameter band, indicating a stable double-shell configuration within the adopted loss and diagnostic choices.}
+    \caption{Seed parameters $A$, $B$, and $R_0$ across epochs.}
     \label{fig:d2-params-epoch}
   \end{subfigure}
 
-  \caption{Optimization diagnostics for double-shell configuration at $v=0.1$, $t=30$.
-  Compared to Fig.~\ref{fig:d1-opt}, the same diagnostics shows that the optimizer finds a viable but more strongly constrained solution, with persistent DEC-limited regions near the inner interface.}
+  \caption{Optimization diagnostics for the double-shell configuration at $v=0.1$, $t=30$. Panel (a) shows the normalized loss terms \texttt{inv\_alpha}, \texttt{physics\_loss}, \texttt{reg\_breach}, and \texttt{total\_loss}. Panel (b) reports the fractions of grid points satisfying NEC/WEC/DEC/SEC; the double-shell case settles into a constrained regime in which SEC remains the easiest condition to satisfy, NEC/WEC stay above DEC, and DEC remains the tightest global constraint. Panel (c) shows that after a modest early adjustment the main run remains in a narrow band of $A$, $B$, and $R_0$, indicating a stable but more strongly constrained configuration within the adopted loss and diagnostic choices.}
+
   \label{fig:d2-opt}
 \end{figure}
 
@@ -687,3 +687,6 @@ The cleaned optimization, diagnostics, plotting, and verification workflow used 
 \bibliography{warpdrive1}
 
 \end{document}
+
+
+

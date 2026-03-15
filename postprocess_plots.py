@@ -259,7 +259,7 @@ def load_run(base):
     return run
 
 
-def _build_trainer(metadata, diagnostic_n_xyz=None):
+def _build_trainer(metadata, diagnostic_n_xyz=None, build_grid=True):
     from einstein_optimizer import CONFIG, EinsteinTrainerCPU
 
     alpha_cfg = metadata.get("alpha_settings", {})
@@ -300,6 +300,7 @@ def _build_trainer(metadata, diagnostic_n_xyz=None):
         L_shear=float(physics_cfg.get("L_shear", CONFIG["L_SHEAR"])),
         use_dec_loss=bool(physics_cfg.get("use_dec_loss", CONFIG.get("USE_DEC_LOSS", True))),
         dec_loss_weight=float(physics_cfg.get("dec_loss_weight", CONFIG.get("DEC_LOSS_WEIGHT", 0.25))),
+        build_grid=build_grid,
         v_mode=effective_v_mode,
         v_coeffs=v_coeffs,
     )
@@ -329,7 +330,7 @@ def _sample_plane_axes(metadata, plane, plane_n=None):
 def compute_plane_map(run, plane, interface_buffer=0.0, plane_n=None):
     metadata = run["metadata"]
     params = run["final_params"]
-    trainer = _build_trainer(metadata, diagnostic_n_xyz=plane_n)
+    trainer = _build_trainer(metadata, diagnostic_n_xyz=plane_n, build_grid=False)
     trainer.create_variables(
         A_init=float(params["A"]),
         B_init=float(params["B"]),
