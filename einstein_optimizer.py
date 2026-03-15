@@ -163,6 +163,15 @@ def ensure_output_paths_available(base_name, overwrite=False):
 
 
 class EinsteinTrainerCPU:
+    """Single-snapshot optimizer used by the referee-facing paper pipeline.
+
+    The trainer keeps the ansatz intentionally small: we optimize the analytic seed
+    parameters `(A, B, R0)` and the mask sharpness `alpha`, while all physics-based
+    diagnostics are derived from the resulting stress tensor. The class therefore
+    acts as the central contract between the optimizer, the CSV exports, and the
+    plotting/post-processing scripts.
+    """
+
     def __init__(
         self,
         N_xyz,
@@ -382,6 +391,12 @@ class EinsteinTrainerCPU:
 
     @tf.function
     def compute_components_on_coords(self, X, Y, Z, T, A, B, R0):
+        """Evaluate the Einstein-tensor-derived stress components on arbitrary coordinates.
+
+        This helper is used both on the training grid and during post-processing on
+        diagnostic planes. Keeping the coordinate-based evaluation in one place helps
+        ensure that optimization and rerendering use exactly the same tensor algebra.
+        """
         X = tf.reshape(tf.cast(X, tf.float32), [-1])
         Y = tf.reshape(tf.cast(Y, tf.float32), [-1])
         Z = tf.reshape(tf.cast(Z, tf.float32), [-1])
@@ -505,6 +520,13 @@ class EinsteinTrainerCPU:
         return nec_margin, wec_margin, dec_margin, sec_margin
 
     def soft_mask(self, r, A, B, R0, alpha):
+        """Return the differentiable shell mask used to weight losses during training.
+
+        The soft mask is a numerical device only: it localizes the objective to the
+        shell region while remaining differentiable with respect to the trainable
+        parameters. The corresponding hard mask is used later for referee-facing
+        success fractions.
+        """
         if self.domain_type == 1:
             thr = F32(2.0) / B
             wl = tf.sigmoid(alpha * (r - thr))
@@ -515,6 +537,12 @@ class EinsteinTrainerCPU:
         return wl * wr
 
     def hard_masks(self, r, A, B, R0):
+        """Return the exact in-domain region together with its left/right complement.
+
+        The hard mask defines the domain on which exported success fractions are
+        reported. It is intentionally separate from the soft mask so that the paper
+        can distinguish optimization weights from binary pass/fail diagnostics.
+        """
         if self.domain_type == 1:
             thr = F32(2.0) / B
             hard = tf.logical_and(r >= thr, r <= self.r_cap)
@@ -527,6 +555,13 @@ class EinsteinTrainerCPU:
         return hard, left, right
 
     def physics_loss_all_observers(self, rho, Px, Py, Pz, Txy, Txz, Tyz, w, use_dec=True, dec_w=0.25):
+        """Compute the soft physics penalty from principal-stress energy-condition margins.
+
+        The loss does not enforce the energy conditions analytically. Instead it
+        penalizes negative margins for NEC/WEC and, optionally, DEC inside the soft
+        shell mask. This is the key reason the workflow should be described as a
+        physics-penalized optimization rather than as an exact constraint solver.
+        """
         nec_margin, wec_margin, dec_margin, _ = self.stress_margins_eig(
             rho, Px, Py, Pz, Txy, Txz, Tyz
         )
@@ -567,6 +602,13 @@ class EinsteinTrainerCPU:
         }
 
     def smoothing_error_continuous(self, r, A, B, R0, alpha, weights=(1.0, 0.5, 0.5)):
+        """Measure how closely the soft mask matches the intended hard shell domain.
+
+        `FN` captures shell points that are insufficiently activated, while `FP_L`
+        and `FP_R` capture mask leakage on either side of the intended interface.
+        This term regularizes the geometry of the support region rather than the
+        stress tensor itself.
+        """
         g = self.soft_mask(r, A, B, R0, alpha)
         hard, left, right = self.hard_masks(r, A, B, R0)
         hard_f = tf.cast(hard, tf.float32)
@@ -580,6 +622,13 @@ class EinsteinTrainerCPU:
         return FN, FP_L, FP_R, w0 * FN + w1 * FP_L + w2 * FP_R
 
     def train(self, num_epochs=300, lr=3e-3, print_interval=20):
+        """Run the main optimization stage starting from the current parameter snapshot.
+
+        The history exported here is the authoritative training record used by the
+        paper figures. In particular, the success fractions stored in `hist` are the
+        principal-stress diagnostics on the hard mask, while the loss terms come from
+        the soft-mask objective that actually drives the optimizer.
+        """
         vars_ = [self.A_raw, self.B_raw]
         if self.R0_raw is not None:
             vars_.append(self.R0_raw)
@@ -707,6 +756,13 @@ class EinsteinTrainerCPU:
         return hist
 
     def train_quick(self, num_epochs=60, lr=3e-3):
+        """Run a short optimization used only during Monte-Carlo pretraining.
+
+        The goal is not to produce publishable curves, but to rank candidate seeds so
+        that the main run starts from a lower-loss basin. This is why some parameter
+        plots in the paper can appear nearly stationary from epoch one: the visible
+        run begins after this pretraining stage has already selected a good snapshot.
+        """
         vars_ = [self.A_raw, self.B_raw]
         if self.R0_raw is not None:
             vars_.append(self.R0_raw)
@@ -744,6 +800,13 @@ class EinsteinTrainerCPU:
         return float(total.numpy())
 
     def pretrain_random_inits(self, trials, pre_epochs, lr, ranges):
+        """Search over random initial seeds before the main optimization begins.
+
+        This stage is deliberately simple: sample `(A, B, R0)` from broad ranges, run
+        a short quick-train, and keep the best snapshot. The chosen seed is recorded
+        only implicitly through the final run history, so the manuscript should refer
+        to this stage whenever the main training curves start already near a plateau.
+        """
         if trials <= 0:
             return
         log(f"\nMonte-Carlo pre-training: {trials} trials x {pre_epochs} mini-epochs")
@@ -789,6 +852,12 @@ class EinsteinTrainerCPU:
         log("Best MC snapshot restored.\n")
 
     def final_report(self, hist):
+        """Summarize the final optimized snapshot in referee-facing diagnostic terms.
+
+        The report intentionally uses the same principal-stress quantities exported to
+        CSV so that textual summaries, tabulated data, and plots all describe the same
+        physical diagnostics.
+        """
         A = F32(hist["A"][-1])
         B = F32(hist["B"][-1])
         alpha_final = F32(hist["alpha"][-1])
@@ -922,6 +991,12 @@ class EinsteinTrainerCPU:
         self._show()
 
     def export_history_csvs(self, history, base_name):
+        """Write the training history in the normalized schema used across the repo.
+
+        These CSVs are the data contract shared by verification, plotting, and paper
+        audits. Any future change to column meanings should therefore be mirrored in
+        the manuscript and in the downstream analysis scripts.
+        """
         os.makedirs(".", exist_ok=True)
         with open(f"{base_name}_losses.csv", "w", encoding="utf-8") as f:
             f.write("epoch,total_loss,physics_loss,reg_breach,inv_alpha,E_soft_%,shear_pen\n")
