@@ -48,26 +48,51 @@ SOFT_MARGIN_COLUMNS = (
     "dec_margin_soft",
     "sec_margin_soft",
 )
+DISPLAY_STYLES = ("default", "old-paper")
+
+# ``default`` is the audit-facing renderer: it shows the rebuilt diagnostic maps
+# with minimal display processing. ``old-paper`` is a manuscript-facing preset
+# that applies display-only smoothing, near-zero whitening, and despeckling to
+# better match the cleaner Mathematica-style figures from the original draft.
 
 
-def configure_style():
-    plt.rcParams.update(
-        {
-            "figure.dpi": 300,
-            "savefig.dpi": 300,
-            "font.size": 14,
-            "axes.titlesize": 16,
-            "axes.labelsize": 14,
-            "xtick.labelsize": 12,
-            "ytick.labelsize": 12,
-            "legend.fontsize": 11,
-            "axes.grid": False,
-            "axes.linewidth": 1.0,
-            "lines.linewidth": 2.2,
-            "savefig.bbox": "tight",
-            "savefig.pad_inches": 0.05,
-        }
-    )
+def configure_style(display_style="default"):
+    base = {
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "font.size": 14,
+        "axes.titlesize": 16,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 11,
+        "axes.grid": False,
+        "axes.linewidth": 1.0,
+        "lines.linewidth": 2.2,
+        "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.05,
+    }
+    if display_style == "old-paper":
+        # This preset keeps the regenerated figures visually closer to the
+        # earlier manuscript PDF without changing the underlying data.
+        base.update(
+            {
+                "font.size": 11,
+                "axes.titlesize": 10,
+                "axes.labelsize": 9,
+                "xtick.labelsize": 7,
+                "ytick.labelsize": 7,
+                "legend.fontsize": 8,
+                "axes.linewidth": 0.6,
+                "lines.linewidth": 1.6,
+                "xtick.major.width": 0.5,
+                "ytick.major.width": 0.5,
+                "xtick.major.size": 2.5,
+                "ytick.major.size": 2.5,
+                "savefig.pad_inches": 0.02,
+            }
+        )
+    plt.rcParams.update(base)
 
 
 def _read_numeric_table(path):
@@ -521,8 +546,133 @@ def _symmetric_norm(data, percentile=99.5):
     return TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
 
 
+def _soft_diverging_cmap():
+    # Mathematica used a hand-built five-stop diverging palette instead of a
+    # stock "bwr" map. Matching those anchor colors helps the Python figures
+    # inherit the softer manuscript look from the original notebooks.
+    colors = [
+        (0.0, 0.0, 0.7),   # dark blue
+        (0.7, 0.7, 1.0),   # light blue
+        (1.0, 1.0, 1.0),   # white
+        (1.0, 0.7, 0.7),   # light red
+        (0.7, 0.0, 0.0),   # dark red
+    ]
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list("soft_bwr", colors)
+    cmap.set_bad(color="white")
+    return cmap
+
+
+def _smooth_masked_field(data, passes=2):
+    """Apply a small display-only blur while preserving NaN masks."""
+    arr = np.asarray(data, dtype=float)
+    mask = np.isfinite(arr)
+    if not np.any(mask):
+        return arr
+
+    smoothed = arr.copy()
+    weights = np.array(
+        [
+            [1.0, 2.0, 1.0],
+            [2.0, 4.0, 2.0],
+            [1.0, 2.0, 1.0],
+        ],
+        dtype=float,
+    )
+    for _ in range(max(int(passes), 0)):
+        value_sum = np.zeros_like(smoothed, dtype=float)
+        weight_sum = np.zeros_like(smoothed, dtype=float)
+        for i in range(3):
+            for j in range(3):
+                shifted_values = np.roll(np.roll(np.nan_to_num(smoothed, nan=0.0), i - 1, axis=0), j - 1, axis=1)
+                shifted_mask = np.roll(np.roll(mask.astype(float), i - 1, axis=0), j - 1, axis=1)
+                value_sum += weights[i, j] * shifted_values
+                weight_sum += weights[i, j] * shifted_mask
+        with np.errstate(invalid="ignore", divide="ignore"):
+            smoothed = np.where(weight_sum > 0.0, value_sum / weight_sum, np.nan)
+        smoothed = np.where(mask, smoothed, np.nan)
+    return smoothed
+
+
+def _style_map_data(data, field_name, display_style):
+    """Return a display-only styled map for the requested rendering preset.
+
+    The underlying diagnostics stay unchanged. ``default`` returns the rebuilt
+    field directly, while ``old-paper`` applies purely visual processing that
+    mirrors the presentation choices used in the Mathematica notebooks: a soft
+    zero-centered deadband and mild local smoothing. The processing is kept
+    deliberately conservative so the manuscript figures remain readable without
+    washing the signed margins out to white.
+    """
+    styled = np.asarray(data, dtype=float)
+    if display_style != "old-paper":
+        return styled
+
+    passes = 1 if field_name == "rho" else 3
+    styled = _smooth_masked_field(styled, passes=passes)
+    finite = styled[np.isfinite(styled)]
+    if finite.size == 0:
+        return styled
+
+    clip = float(np.nanpercentile(np.abs(finite), 99.0))
+    if clip <= 0.0:
+        return styled
+
+    if field_name == "rho":
+        return styled
+
+    if field_name in {"WEC_min", "NEC_min", "DEC_margin"}:
+        styled = np.where(styled > 0.0, 0.0, styled)
+
+    deadband_factors = {
+        "WEC_min": 0.45,
+        "NEC_min": 0.45,
+        # DEC needs a lighter display deadband than WEC/NEC. The stronger
+        # whitening that works for the signed observer margins was erasing too
+        # much of the shell-wide negative ring in the manuscript XY panel.
+        "DEC_margin": 0.08,
+        "SEC": 0.28,
+    }
+    threshold = deadband_factors.get(field_name, 0.25) * clip
+    if threshold > 0.0:
+        styled = np.where(np.abs(styled) < threshold, 0.0, styled)
+
+    post_passes = 2 if field_name in {"WEC_min", "NEC_min"} else 1
+    styled = _smooth_masked_field(styled, passes=post_passes)
+    if threshold > 0.0:
+        styled = np.where(np.abs(styled) < 0.5 * threshold, 0.0, styled)
+    return styled
+
+
+
+def _map_percentile(field_name, display_style):
+    """Choose a robust display percentile tuned per manuscript rendering mode."""
+    if display_style != "old-paper":
+        return 99.5
+    if field_name == "SEC":
+        return 96.5
+    if field_name == "DEC_margin":
+        return 97.5
+    return 98.0
+
+
+def _old_paper_title(field_name, title):
+    plane = ""
+    if "(" in title and title.endswith(")"):
+        plane = title.split("(")[-1][:-1].strip().lower().replace("xy", "x-y").replace("xz", "x-z")
+    plane_suffix = f" ({plane})" if plane else ""
+    labels = {
+        "rho": "Energy density: rho",
+        "WEC_min": "WEC min",
+        "NEC_min": "NEC min",
+        "DEC_margin": "DEC margin",
+        "SEC": "SEC",
+    }
+    return f"{labels.get(field_name, title)}{plane_suffix}"
+
+
 def plot_map(
     data,
+    field_name,
     axis_x,
     axis_y,
     xlabel,
@@ -535,25 +685,39 @@ def plot_map(
     interpolation="nearest",
     xlim=None,
     ylim=None,
+    display_style="default",
 ):
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    cmap = plt.get_cmap("bwr").copy()
+    map_data = _style_map_data(data, field_name=field_name, display_style=display_style)
+    cmap = _soft_diverging_cmap() if display_style == "old-paper" else plt.get_cmap("bwr").copy()
     cmap.set_bad(color="white")
     ax.set_facecolor("white")
 
     image = ax.imshow(
-        np.ma.masked_invalid(data).T,
+        np.ma.masked_invalid(map_data).T,
         origin="lower",
         extent=(axis_x[0], axis_x[-1], axis_y[0], axis_y[-1]),
         cmap=cmap,
-        norm=_symmetric_norm(data),
+        norm=_symmetric_norm(map_data, percentile=_map_percentile(field_name, display_style)),
         interpolation=interpolation,
         aspect="equal",
     )
 
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
+    ax.set_xlabel(xlabel.lower())
+    ax.set_ylabel(ylabel.lower())
+    ax.set_title(
+        _old_paper_title(field_name, title) if display_style == "old-paper" else title,
+        pad=3.5 if display_style == "old-paper" else None,
+    )
+    if display_style == "old-paper":
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.6)
+            spine.set_color("#c6c6c6")
+        ax.tick_params(colors="#7a7a7a", width=0.45, length=2.3, top=False, right=False)
+        ax.title.set_color("#5e5e5e")
+        ax.title.set_fontsize(8.5)
+        ax.xaxis.label.set_color("#6b6b6b")
+        ax.yaxis.label.set_color("#6b6b6b")
     if xlim is not None:
         ax.set_xlim(xlim)
     if ylim is not None:
@@ -765,9 +929,15 @@ def main():
         default="nearest",
         help="Image interpolation used when rendering field maps. This affects display only, not the underlying diagnostics.",
     )
+    parser.add_argument(
+        "--display-style",
+        choices=DISPLAY_STYLES,
+        default="default",
+        help="Visual preset for field maps. `default` is the raw audit-facing renderer; `old-paper` applies display-only smoothing/deadband/despeckling for manuscript readability.",
+    )
     args = parser.parse_args()
 
-    configure_style()
+    configure_style(display_style=args.display_style)
 
     run = load_run(args.base)
     planes = _parse_planes(args.planes)
@@ -792,6 +962,7 @@ def main():
             output_path = outdir / f"{field_base_name}_{plane}_{spec['filename']}.png"
             plot_map(
                 data=plane_map["fields"][field_name],
+                field_name=field_name,
                 axis_x=plane_map["axis_x"],
                 axis_y=plane_map["axis_y"],
                 xlabel=plane_map["xlabel"],
@@ -804,6 +975,7 @@ def main():
                 interpolation=args.interpolation,
                 xlim=tuple(args.xlim) if args.xlim else None,
                 ylim=tuple(args.ylim) if args.ylim else None,
+                display_style=args.display_style,
             )
 
     plot_losses(
@@ -828,6 +1000,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 

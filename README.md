@@ -295,6 +295,15 @@ All field-map filenames use the revised manuscript language:
 - `DECmargin` (filename) / `DEC_margin` (diagnostic label)
 - `SEC`
 
+### Display Styles for Field Maps
+
+`postprocess_plots.py` provides two rendering modes for the same rebuilt fields:
+
+- `--display-style default`: audit-facing output with minimal display processing. Use this when checking the raw sign structure or comparing directly against exported diagnostics.
+- `--display-style old-paper`: manuscript-facing output with display-only smoothing, a zero-centered deadband, and isolated-pixel suppression to mimic the cleaner Mathematica `DensityPlot` appearance from the earlier draft.
+
+This distinction is intentional. All quantitative claims in the manuscript should be read from the unsmoothed diagnostics (`success_rates.csv`, `losses.csv`, `final_params.csv`, and raw rebuilt fields). The `old-paper` preset exists only to improve figure readability and does not feed back into the optimization or into any reported percentages/margins.
+
 ## Reproducibility Notes
 
 ### Origin of the Code
