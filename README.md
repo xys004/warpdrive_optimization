@@ -314,9 +314,29 @@ The repository now includes:
 
 - `export_mathematica_plane_maps.py`: rebuilds XY/XZ diagnostic planes from the
   cleaned bundle and exports them as Mathematica-friendly JSON grids.
+- `render_mathematica_plane_maps.py`: Python port of the Mathematica
+  presentation renderer. It can render either an existing
+  `mathematica_exports/<bundle>/` JSON directory or rebuild directly from a run
+  bundle with manuscript-oriented defaults (`plane_n=700`, `bicubic`
+  interpolation, robust zero-centered clipping, and the same five-stop
+  diverging palette).
 - `render_mathematica_plane_maps.wl`: a Wolfram Language renderer that imports
   those JSON files and creates clean `ListDensityPlot` manuscript panels with a
   five-stop diverging palette similar to the original draft notebooks.
+
+If you want a pure-Python manuscript-style render directly from a run bundle,
+start with:
+
+```bash
+python render_mathematica_plane_maps.py \
+  --base manuscript_target_bundles/domain_2_v_0p1_t_30p0 \
+  --output-dir python_rendered \
+  --planes XY XZ
+```
+
+This is usually the best first option when the standard `postprocess_plots.py`
+ output looks too coarse or too pixelated. The rendering is still
+ presentation-only; it does not modify the underlying diagnostic values.
 
 Typical workflow:
 
@@ -344,6 +364,14 @@ wolframscript -file render_mathematica_plane_maps.wl -- \
   --image-size 420 \
   --plot-min -2.6 \
   --plot-max 2.6
+```
+
+If you already have the JSON export directory and only want the Python port of
+the presentation layer, use:
+
+```bash
+python render_mathematica_plane_maps.py \
+  --input-dir mathematica_exports/domain_2_v_0p1_t_30p0_a1p848_b1p135_R01p292
 ```
 
 Important: this Mathematica path is presentation-only. The paper's success

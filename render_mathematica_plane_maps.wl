@@ -7,7 +7,11 @@
    and this Wolfram script only handles figure aesthetics for manuscript use.
 *)
 
-args = Rest[$ScriptCommandLine];
+args = If[
+  ValueQ[$ScriptCommandLine] && Length[$ScriptCommandLine] >= 1,
+  Rest[$ScriptCommandLine],
+  {}
+];
 
 getArg[name_, default_] := Module[{pos = FirstPosition[args, name, Missing["NotFound"]]},
   If[pos === Missing["NotFound"] || pos[[1]] == Length[args], default, args[[pos[[1]] + 1]]]
@@ -39,19 +43,25 @@ softColorMap = Blend[
   #
 ] &;
 
-fieldLabel[field_] := Switch[field,
-  "rho", "Energy density: rho",
-  "WEC_min", "WEC min",
-  "NEC_min", "NEC min",
-  "DEC_margin", "DEC margin",
-  "SEC", "SEC",
-  field
+fieldLabel[field_] := Lookup[
+  <|
+    "rho" -> "Energy density: rho",
+    "WEC_min" -> "WEC min",
+    "NEC_min" -> "NEC min",
+    "DEC_margin" -> "DEC margin",
+    "SEC" -> "SEC"
+  |>,
+  ToString[field],
+  ToString[field]
 ];
 
-planeLabel[plane_] := Switch[plane,
-  "XY", "x-y",
-  "XZ", "x-z",
-  plane
+planeLabel[plane_] := Lookup[
+  <|
+    "XY" -> "x-y",
+    "XZ" -> "x-z"
+  |>,
+  ToString[plane],
+  ToString[plane]
 ];
 
 toPoints[json_] := Module[{x, y, values},
