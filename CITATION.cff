@@ -1,6 +1,6 @@
 ﻿cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
-title: "warpdrive_optimization"
+title: "Warpdrive Optimization: Principal-Stress Diagnostics and Constrained Optimization for Zero-Vorticity Warp-Drive Metrics"
 type: software
 abstract: >-
   TensorFlow-based constrained optimization, post-processing, and output
