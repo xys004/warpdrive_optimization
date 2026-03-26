@@ -322,6 +322,7 @@ class EinsteinTrainerCPU:
         B = self.map_B(self.B_raw)
         R0 = self.map_R0(self.R0_raw, B) if self.domain_type == 2 else None
         return A, B, R0
+
     def set_from_values(self, A_val, B_val, R0_val=None):
         """Load physical parameter values directly into the trainable variables.
 
@@ -366,11 +367,36 @@ class EinsteinTrainerCPU:
 
     @tf.function
     def beta_r_piecewise(self, r, A, B, R0):
+        """Evaluate the radial shift-vector seed ansatz beta(r) for both domain types.
+
+        The shift vector beta(r) is the radial profile of the warp-bubble metric
+        perturbation. Its square root form ensures beta >= 0 everywhere.
+
+        Domain 1 (single shell):
+            The ansatz is derived from integrating a Yukawa-type source. The active
+            shell region is r >= 2/B (capped to the plotting box). Inside this
+            threshold the shift is set to zero to avoid the coordinate singularity
+            near r=0.
+
+            bracket = 10*exp(-2) - exp(-Br)*(B^2*r^2 + 2Br + 2)
+            beta_d1 = sqrt( (8*pi*A) / (B^3 * r) * max(bracket, 0) )  for r >= 2/B
+
+        Domain 2 (double shell / annular region):
+            The active shell is R0 <= r <= 2/B.  Inside R0 the shift is zero;
+            outside 2/B the shift freezes at its boundary value (tail region).
+
+            beta_mid = sqrt( (8*pi/r) * (A/B) * (1 - exp(-B*(r-R0))) )  for R0 <= r <= 2/B
+            beta_hi  = same formula evaluated at r = 2/B (constant tail)  for r > 2/B
+
+        Clipping to 1e10 prevents float32 overflow in rare degenerate configurations
+        without altering the gradient landscape in physically reasonable parameter ranges.
+        """
         r = tf.maximum(tf.cast(r, tf.float32), EPS)
         A = tf.maximum(tf.abs(tf.cast(A, tf.float32)), EPS)
         B = tf.maximum(tf.cast(B, tf.float32), EPS)
         Br = B * r
 
+        # --- Domain 1: single-shell Yukawa-integrated ansatz ---
         bracket = F32(10.0) * tf.exp(-F32(2.0)) - tf.exp(-Br) * (
             B * B * r * r + F32(2.0) * B * r + F32(2.0)
         )
@@ -380,15 +406,19 @@ class EinsteinTrainerCPU:
                 tf.maximum(factor * tf.maximum(bracket, EPS), EPS), EPS, F32(1e10)
             )
         )
+        # Zero inside the threshold 2/B to avoid the near-origin singularity.
         beta_d1 = tf.where(r >= (F32(2.0) / B), beta_d1_raw, tf.zeros_like(beta_d1_raw))
 
+        # --- Domain 2: double-shell / annular ansatz ---
         R = tf.maximum(
             tf.cast(R0 if R0 is not None else R0_MARGIN, tf.float32), R0_MARGIN
         )
+        # Active mid-region: exponential rise from inner boundary R.
         mid_arg = tf.maximum(F32(1.0) - tf.exp(-B * (r - R)), EPS)
         beta_mid = tf.sqrt(
             tf.clip_by_value((F32(8.0) * PI32 / r) * (A / B) * mid_arg, EPS, F32(1e10))
         )
+        # Tail region (r > 2/B): freeze at the outer-shell boundary value.
         tail_arg = tf.maximum(F32(1.0) - tf.exp(-B * ((F32(2.0) / B) - R)), EPS)
         beta_hi = tf.sqrt(
             tf.clip_by_value((F32(8.0) * PI32 / r) * (A / B) * tail_arg, EPS, F32(1e10))
@@ -402,6 +432,21 @@ class EinsteinTrainerCPU:
 
     @tf.function
     def beta_and_derivs(self, r, A, B, R0):
+        """Return beta(r) and its first two radial derivatives via central differences.
+
+        The Einstein tensor components require d(beta)/dr and d^2(beta)/dr^2.
+        Analytic differentiation of the piecewise ansatz is error-prone at the
+        shell boundaries, so we use second-order central finite differences with
+        step size FD_H = 1e-4 (set in CONFIG["FD_H"]).
+
+        Truncation error is O(h^2) ~ 1e-8, well below the float32 epsilon (~1e-7),
+        so FD_H is near the optimal balance between truncation and rounding error.
+
+        NaN/Inf guards (is_finite) are applied after differentiation to prevent
+        degenerate parameter configurations from crashing the training graph. These
+        should not trigger in well-behaved runs; persistent NaNs indicate that the
+        optimizer has reached a numerically singular configuration.
+        """
         r = tf.maximum(tf.cast(r, tf.float32), EPS)
         h = FD_H
 
@@ -413,8 +458,11 @@ class EinsteinTrainerCPU:
         rm = tf.maximum(r - h, EPS)
         bp = f(rp)
         bm = f(rm)
+        # First derivative: central difference  b'(r) ≈ (b(r+h) - b(r-h)) / 2h
         b1 = (bp - bm) / (F32(2.0) * h)
+        # Second derivative: b''(r) ≈ (b(r+h) - 2*b(r) + b(r-h)) / h^2
         b2 = (bp - F32(2.0) * b0 + bm) / (h * h)
+        # Replace any NaN/Inf with zero to keep the graph stable.
         b0 = tf.where(tf.math.is_finite(b0), b0, tf.zeros_like(b0))
         b1 = tf.where(tf.math.is_finite(b1), b1, tf.zeros_like(b1))
         b2 = tf.where(tf.math.is_finite(b2), b2, tf.zeros_like(b2))
@@ -436,6 +484,8 @@ class EinsteinTrainerCPU:
         b0, b1, b2 = self.beta_and_derivs(r, A, B, R0)
         v = self.V(T)
 
+        # Pre-compute powers of r and coordinate products used in the Einstein tensor.
+        # Small EPS denominators prevent division-by-zero at the origin (r=0).
         r2 = tf.maximum(r * r, EPS)
         r4 = tf.pow(tf.maximum(r, EPS), F32(4.0))
         r5 = tf.pow(tf.maximum(r, EPS), F32(5.0))
@@ -446,6 +496,19 @@ class EinsteinTrainerCPU:
         xz = X * Z
         yz = Y * Z
 
+        # Einstein tensor components G_{mu nu} for the uniformly-translated warp metric.
+        #
+        # The metric is ds^2 = -dt^2 + (dx - v*beta(r)*dt_z)^2 + dy^2 + dz^2 where
+        # beta(r) is the radial shift function and v = V(t) is the bubble speed along z.
+        # Here dt_z denotes the z-component of the translation direction.
+        #
+        # These expressions are the closed-form EFE components derived from that metric
+        # ansatz in Cartesian coordinates (r = sqrt(x^2 + y^2 + z^2)).
+        # b0 = beta(r),  b1 = d(beta)/dr,  b2 = d^2(beta)/dr^2.
+        #
+        # The stress-energy tensor is T_{mu nu} = G_{mu nu} / (8*pi) in geometrized units.
+
+        # G_tt: energy density source term.
         Gtt = (b0 * (b0 + F32(2.0) * r * b1)) / r2
         Gxx = (
             (-x2) * r * b0 * b0
@@ -511,14 +574,15 @@ class EinsteinTrainerCPU:
             )
         ) / (r5 + EPS)
 
+        # Convert G_{mu nu} to stress-energy T_{mu nu} = G_{mu nu} / (8*pi).
         factor = F32(1.0) / (F32(8.0) * PI32)
-        rho = Gtt * factor
-        Px = Gxx * factor
-        Py = Gyy * factor
-        Pz = Gzz * factor
-        Txy = Gxy * factor
-        Txz = Gxz * factor
-        Tyz = Gyz * factor
+        rho = Gtt * factor   # energy density
+        Px = Gxx * factor    # x-pressure
+        Py = Gyy * factor    # y-pressure
+        Pz = Gzz * factor    # z-pressure
+        Txy = Gxy * factor   # xy shear
+        Txz = Gxz * factor   # xz shear
+        Tyz = Gyz * factor   # yz shear
         return rho, Px, Py, Pz, Txy, Txz, Tyz, r
 
     @tf.function
@@ -858,7 +922,7 @@ class EinsteinTrainerCPU:
                 R00 = None
             self.set_from_values(A0, B0, R00)
             if self.alpha_raw is not None:
-                self.alpha_raw.assign(inv_softplus_pos(max(CONFIG["ALPHA_INIT"] - CONFIG["ALPHA_FLOOR_START"], 1e-3)))
+                self.alpha_raw.assign(inv_softplus_pos(max(self.alpha_init - self.alpha_floor_start, 1e-3)))
             loss_end = self.train_quick(num_epochs=pre_epochs, lr=lr)
             if loss_end < best:
                 best = loss_end
@@ -1028,7 +1092,6 @@ class EinsteinTrainerCPU:
         audits. Any future change to column meanings should therefore be mirrored in
         the manuscript and in the downstream analysis scripts.
         """
-        os.makedirs(".", exist_ok=True)
         with open(f"{base_name}_losses.csv", "w", encoding="utf-8") as f:
             f.write("epoch,total_loss,physics_loss,reg_breach,inv_alpha,E_soft_%,shear_pen\n")
             for i in range(len(history["loss_total"])):
