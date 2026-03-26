@@ -1,22 +1,41 @@
 ﻿cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
-title: "warp_optimization"
+title: "warpdrive_optimization"
 type: software
 abstract: >-
   TensorFlow-based constrained optimization, post-processing, and output
-  verification pipeline for principal-stress diagnostics of uniformly
-  translated warp-drive shell seed configurations.
+  verification pipeline for principal-stress energy-condition diagnostics of
+  uniformly translated, zero-vorticity warp-drive shell seed configurations.
+  Implements single-shell and double-shell piecewise anisotropic-fluid seeds
+  embedded in the restricted translation-based zero-vorticity class of
+  Santiago, Schuster, and Visser. Used in the manuscript "Positive-Energy Seed
+  Constructions for a Restricted Zero-Vorticity Translation Class of
+  Warp-Drive-Like Metrics" (Bolívar, Abellán, Vasilev, 2026).
 authors:
-  - family-names: "<FAMILY_NAME>"
-    given-names: "<GIVEN_NAME>"
+  - family-names: "Bolívar"
+    given-names: "N."
+    affiliation: "Departamento de Física, Facultad de Ciencias, Universidad Central de Venezuela; Astrum Drive Technologies"
+  - family-names: "Abellán"
+    given-names: "G."
+    affiliation: "Departamento de Física, Facultad de Ciencias, Universidad Central de Venezuela; Astrum Drive Technologies"
+  - family-names: "Vasilev"
+    given-names: "I."
+    affiliation: "Astrum Drive Technologies"
 license: "Apache-2.0"
-repository-code: "<REPOSITORY_URL>"
-doi: "<DOI>"
-version: "<RELEASE_VERSION>"
-date-released: "<RELEASE_DATE>"
+repository-code: "https://github.com/xys004/warpdrive_optimization"
+doi: "10.5281/zenodo.19040071"
+version: "1.0.0"
+date-released: "2026-03-26"
 keywords:
   - general relativity
   - warp drive
   - energy conditions
+  - zero-vorticity
+  - anisotropic fluid
+  - constrained optimization
   - tensorflow
   - scientific computing
+  - NEC
+  - WEC
+  - DEC
+  - SEC
