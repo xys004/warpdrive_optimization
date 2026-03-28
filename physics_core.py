@@ -94,3 +94,72 @@ def principal_stress_margins(rho, Px, Py, Pz, Txy, Txz, Tyz):
     # SEC involves the trace of the pressure tensor (sum of all eigenvalues).
     sec_margin = rho + lam1 + lam2 + lam3
     return nec_margin, wec_margin, dec_margin, sec_margin
+
+
+def hawking_ellis_type1_diagnostic(rho, Px, Py, Pz, Txy, Txz, Tyz,
+                                   qx=None, qy=None, qz=None):
+    """Verify Hawking-Ellis Type I classification at every grid point.
+
+    For a stress-energy tensor T^a_b in an orthonormal frame:
+      T^a_b = | -rho   q_j  |
+              | -q_i   P_ij |
+
+    Type I requires:
+    1. q_i = 0 (block-diagonal, no energy flux)
+    2. P_ij real-symmetric (guaranteed) with real eigenvalues
+    3. Timelike eigenvalue (-rho) distinct from spatial eigenvalues lambda_i
+
+    When Type I holds, the pointwise energy conditions for ALL observers
+    reduce to the algebraic principal-stress conditions:
+      WEC: rho >= 0 AND rho + lambda_i >= 0
+      NEC: rho + lambda_i >= 0
+      DEC: rho >= |lambda_i|
+      SEC: rho + sum(lambda_i) >= 0 AND rho + lambda_i >= 0
+
+    Parameters
+    ----------
+    rho : tf.Tensor, shape (N,)
+        Energy density.
+    Px, Py, Pz, Txy, Txz, Tyz : tf.Tensor, shape (N,)
+        Spatial pressure components.
+    qx, qy, qz : tf.Tensor or None
+        Energy flux components. If None, assumed zero (as proved analytically
+        for the uniform-translation zero-vorticity class).
+
+    Returns
+    -------
+    is_type1 : tf.Tensor, shape (N,), bool
+        True where the tensor is Type I within tolerance.
+    flux_norm : tf.Tensor, shape (N,)
+        ||q||, the norm of the energy flux vector. Should be ~0 for Type I.
+    eigenvalue_gap : tf.Tensor, shape (N,)
+        min_i |rho + lambda_i|, the gap between timelike and spatial eigenvalues.
+        Positive means non-degenerate Type I.
+    type1_fraction : tf.Tensor, scalar
+        Fraction of grid points classified as Type I.
+    """
+    # Energy flux norm
+    if qx is None:
+        flux_norm = tf.zeros_like(rho)
+    else:
+        flux_norm = tf.sqrt(qx * qx + qy * qy + qz * qz + 1e-30)
+
+    # Spatial eigenvalues
+    lam1, lam2, lam3 = assemble_pressure_eigenvalues(Px, Py, Pz, Txy, Txz, Tyz)
+
+    # The timelike eigenvalue is -rho. Type I requires it to be distinct from
+    # spatial eigenvalues.  The spatial eigenvalues are lambda_i.
+    # We check |(-rho) - lambda_i| > 0, equivalently |rho + lambda_i| > 0.
+    gap1 = tf.abs(rho + lam1)  # Note: rho + lambda is also the NEC margin!
+    gap2 = tf.abs(rho + lam2)
+    gap3 = tf.abs(rho + lam3)
+    eigenvalue_gap = tf.minimum(gap1, tf.minimum(gap2, gap3))
+
+    # Type I classification: flux small AND eigenvalue gap positive
+    tol_flux = tf.constant(1e-6, dtype=tf.float32)
+    tol_gap = tf.constant(1e-12, dtype=tf.float32)
+    is_type1 = tf.logical_and(flux_norm < tol_flux, eigenvalue_gap > tol_gap)
+
+    type1_fraction = tf.reduce_mean(tf.cast(is_type1, tf.float32))
+
+    return is_type1, flux_norm, eigenvalue_gap, type1_fraction

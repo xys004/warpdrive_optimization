@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm.auto import tqdm as _tqdm
 
-from physics_core import assemble_pressure_eigenvalues, principal_stress_margins
+from physics_core import assemble_pressure_eigenvalues, principal_stress_margins, hawking_ellis_type1_diagnostic
 
 warnings.filterwarnings("ignore")
 
@@ -588,6 +588,68 @@ class EinsteinTrainerCPU:
     @tf.function
     def compute_components(self, A, B, R0):
         return self.compute_components_on_coords(self.X, self.Y, self.Z, self.T, A, B, R0)
+
+    @tf.function
+    def compute_momentum_flux(self, X, Y, Z, T, A, B, R0):
+        """Compute energy flux q_i = G^perp_i / (8*pi) in the orthonormal comoving frame.
+
+        For the uniform-translation zero-vorticity ansatz, this should be
+        identically zero because K_ij is independent of the constant boost.
+        We verify this numerically as part of the Hawking-Ellis Type I diagnostic.
+
+        Uses the ADM momentum constraint:
+        8*pi*q_i = G^perp_i = D_j(K^j_i - K*delta^j_i)
+
+        For our metric with flat spatial slices and unit lapse:
+        K_ij = (1/2)(partial_i beta_j + partial_j beta_i)
+        where beta_i = beta(r) * x_i/r + v_i (constant v_i drops out of derivatives).
+        """
+        X = tf.reshape(tf.cast(X, tf.float32), [-1])
+        Y = tf.reshape(tf.cast(Y, tf.float32), [-1])
+        Z = tf.reshape(tf.cast(Z, tf.float32), [-1])
+        r = self.r_geom(X, Y, Z)
+        b0, b1, b2 = self.beta_and_derivs(r, A, B, R0)
+
+        # n_i = x_i / r (unit radial vector)
+        r_safe = tf.maximum(r, EPS)
+        nx = X / r_safe
+        ny = Y / r_safe
+        nz = Z / r_safe
+
+        # K_ij = A(r)*delta_ij + B(r)*n_i*n_j
+        # where A(r) = beta/r, B(r) = beta' - beta/r
+        Ar = b0 / r_safe       # beta/r
+        Br = b1 - Ar            # beta' - beta/r
+
+        # Trace: K = 3*A + B = 2*beta/r + beta'
+        K_trace = F32(3.0) * Ar + Br
+
+        # Momentum constraint for spherically symmetric K_ij on flat R^3:
+        # D_j K^j_i - D_i K
+        #
+        # For K^j_i = A delta^j_i + B n^j n_i:
+        # D_j K^j_i = (A' + B' + 2B/r) n_i
+        # D_i K = K' n_i = (2*Br/r + b2) n_i
+        #
+        # A' = d(beta/r)/dr = (b1 - Ar)/r = Br/r
+        # B' = d(beta' - beta/r)/dr = b2 - Br/r
+        # A' + B' = b2   =>  G^perp_i = (b2 + 2B/r - 2B/r - b2) n_i = 0
+        #
+        # This is the ANALYTIC PROOF that q_i = 0 for this ansatz.
+        # We compute it numerically for verification.
+        Ap = Br / r_safe
+        Bp = b2 - Br / r_safe
+        Kp = F32(2.0) * Br / r_safe + b2
+
+        # G^perp magnitude (should be zero analytically)
+        G_perp_coeff = Ap + Bp + F32(2.0) * Br / r_safe - Kp
+
+        # Flux components
+        qx = G_perp_coeff * nx / (F32(8.0) * PI32)
+        qy = G_perp_coeff * ny / (F32(8.0) * PI32)
+        qz = G_perp_coeff * nz / (F32(8.0) * PI32)
+
+        return qx, qy, qz
 
     @tf.function
     def assemble_P_eigs(self, Px, Py, Pz, Txy, Txz, Tyz):
